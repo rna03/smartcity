@@ -12,6 +12,10 @@ POST {{SmartCity.Api_HostAddress}}/api/import/openstreetmap
 
 ###
 
+GET {{SmartCity.Api_HostAddress}}/api/map/config
+
+###
+
 GET {{SmartCity.Api_HostAddress}}/api/hospitals
 
 ###

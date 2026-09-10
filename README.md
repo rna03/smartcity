@@ -1,7 +1,7 @@
 # SmartCity Location Intelligence
 
-Akıllı Şehir Acil Hizmet Lokasyon Analiz Sistemi. Phase 2, mevcut Phase 1
-mimarisi üzerine OpenStreetMap/Overpass veri içe aktarma hattını ekler.
+Akıllı Şehir Acil Hizmet Lokasyon Analiz Sistemi. Phase 3, mevcut Phase 1–2
+mimarisi üzerine Leaflet tabanlı interaktif bir GIS harita arayüzü ekler.
 
 ## Mimari
 
@@ -9,6 +9,7 @@ mimarisi üzerine OpenStreetMap/Overpass veri içe aktarma hattını ekler.
 - `SmartCity.Application`: Import use-case'i, port interface'leri ve API DTO'ları.
 - `SmartCity.Infrastructure`: Overpass istemcisi, JSON mapping ve EF Core persistence.
 - `SmartCity.Api`: Configuration, dependency injection ve ince HTTP controller'ları.
+- `frontend`: HTML, CSS, Vanilla JavaScript ve Leaflet tabanlı harita arayüzü.
 - `SmartCity.Infrastructure.Tests`: Kritik OSM → NetTopologySuite mapping testleri.
 
 Generic Repository eklenmedi. Import için yalnızca amaca özel `ISpatialDataStore`
@@ -55,11 +56,34 @@ Overpass endpoint'i, timeout ve en büyük response boyutu da configuration'dad�
 
 ```json
 "OpenStreetMap": {
-  "OverpassUrl": "https://overpass-api.de/api/interpreter",
-  "TimeoutSeconds": 60,
+  "Primary": {
+    "Url": "https://overpass.kumi.systems/api/interpreter",
+    "TimeoutSeconds": 60
+  },
+  "Fallback": {
+    "Url": "https://overpass-api.de/api/interpreter",
+    "TimeoutSeconds": 60
+  },
   "MaxResponseBytes": 26214400
 }
 ```
+
+Development ortamında `appsettings.Development.json`, her iki endpoint timeout'unu
+90 saniyeye yükseltir. Endpoint'ler kod içinde sabit değildir ve gerektiğinde
+environment variable ile değiştirilebilir:
+
+```powershell
+$env:OpenStreetMap__Primary__Url = "https://overpass.kumi.systems/api/interpreter"
+$env:OpenStreetMap__Primary__TimeoutSeconds = "90"
+$env:OpenStreetMap__Fallback__Url = "https://overpass-api.de/api/interpreter"
+$env:OpenStreetMap__Fallback__TimeoutSeconds = "90"
+```
+
+`HttpClientFactory` ve request `CancellationToken` davranışı korunur. Primary yalnızca
+timeout, network hatası veya HTTP 5xx sonrasında bırakılır ve fallback en fazla bir kez
+denenir. HTTP 4xx, geçersiz JSON ve response-size hatalarında fallback yapılmaz.
+Deneme, timeout, fallback geçişi, HTTP/network hatası ve başarılı endpoint structured
+log olarak kaydedilir.
 
 ## Alınan OSM verileri
 
@@ -99,9 +123,10 @@ yaklaşımdır. Yollar, art arda yinelenen koordinatları temizlenmiş geçerli
 - Microsoft.Extensions Options/Logging/DI abstractions 10.0.12
 - xUnit 2.9.3 ve Microsoft.NET.Test.Sdk 17.14.1
 
-GeoJSON serialization paketi eklenmedi. Phase 2 DTO'ları koordinatları açıkça
-taşır; gerçek GeoJSON `FeatureCollection` sözleşmesi Leaflet entegrasyonuyla
-birlikte Phase 3'te seçilecektir.
+GeoJSON serialization paketi eklenmedi. Mevcut DTO'lar point verileri için açık
+`longitude`/`latitude`, yollar için ise açık koordinat listeleri taşıdığı için
+Phase 3 bu sözleşmeyi korur. Böylece yalnızca harita göstermek amacıyla çalışan
+API yeniden tasarlanmaz veya yeni bir serialization bağımlılığı eklenmez.
 
 ## Çalıştırma
 
@@ -204,7 +229,90 @@ ayrı dizin ve metadata ile açıkça işaretlenecektir.
 10. **Bounding box nedir?** Bir coğrafi alanı güney, batı, kuzey ve doğu sınırlarıyla
     tanımlayan dikdörtgendir.
 
+## Phase 3: interaktif GIS haritası
+
+Frontend dosyaları `frontend/` altında backend'den ayrı tutulur. API build sırasında
+bu statik dosyaları çıktısına alır ve `/` adresinden sunar. Ayrı bir Node.js veya
+Python static server gerekmez.
+
+```text
+Browser
+  ↓
+HTML / CSS / Vanilla JavaScript
+  ↓
+Leaflet + OpenStreetMap tile layer
+  ↓
+ASP.NET Core API
+  ↓
+PostgreSQL / PostGIS
+```
+
+Harita şu endpoint'leri kullanır:
+
+- `GET /api/map/config`: `PilotArea` adını, merkezini ve bounds değerlerini verir.
+- `GET /api/hospitals`: Hastane marker'larını besler.
+- `GET /api/fire-stations`: İtfaiye marker'larını besler.
+- `GET /api/roads`: Ana yol polyline'larını besler.
+
+Frontend, `POST /api/import/openstreetmap` endpoint'ini otomatik çağırmaz. Import,
+harita açılmadan önce kullanıcının bilinçli olarak çalıştırdığı ayrı bir veri hazırlama
+adımıdır.
+
+### Leaflet, OpenStreetMap ve koordinatlar
+
+Leaflet, tarayıcıda interaktif harita, katman, marker, polyline ve popup işlemlerini
+yöneten hafif bir JavaScript kütüphanesidir. OpenStreetMap tile layer ise haritanın
+görsel tabanını oluşturan döşeme görselleridir; tile ve Leaflet CDN kaynakları için
+internet bağlantısı gerekir. OSM attribution harita üzerinde korunur.
+
+PostGIS/API koordinatları GIS standardına uygun biçimde `longitude, latitude`
+(X, Y) sırasıyla taşır. Leaflet `latitude, longitude` sırasını bekler. Bu dönüşüm
+yalnızca `frontend/js/geo.js` içindeki `toLeafletLatLng()` fonksiyonunda yapılır.
+
+GeoJSON; geometri ve özellikleri `Feature`/`FeatureCollection` yapısında taşıyan
+standart bir JSON formatıdır. Leaflet ile doğal uyumlu olsa da mevcut DTO'lar Phase 3
+ihtiyacını açık biçimde karşıladığı için sırf frontend adına API GeoJSON'a çevrilmedi.
+
+Katman kontrolü Pilot Area, Hospitals, Fire Stations ve Main Roads katmanlarını bağımsız
+açıp kapatır. PilotArea bounds tıklanabilir bir rectangle/polygon olarak gösterilir.
+Veri yüklendikten sonra `fitBounds`, geçerli tüm marker ve yolları görünür
+alana sığdırır; boş veri varsa mevcut pilot alan görünümünü korur. Haritada boş bir
+noktaya tıklandığında latitude/longitude hem popup'ta hem bilgi panelinde gösterilir;
+henüz backend'e analiz isteği gönderilmez.
+
+### Çalıştırma ve doğrulama
+
+PowerShell üzerinden repository kökünde:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d database
+dotnet tool restore
+dotnet restore SmartCity.slnx
+dotnet tool run dotnet-ef database update --project backend/SmartCity.Infrastructure --startup-project backend/SmartCity.Api
+dotnet run --project backend/SmartCity.Api --launch-profile http
+```
+
+İlk veri hazırlama işlemini ayrı bir PowerShell penceresinde çalıştırın:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:5113/api/import/openstreetmap
+Start-Process http://localhost:5113
+```
+
+Ardından marker/line popup'larını, layer control seçeneklerini, harita tıklamasını
+ve sayaçları kontrol edin. Backend/frontend aynı `http://localhost:5113` origin'ini
+kullandığı için CORS policy eklenmedi. Frontend ileride farklı origin'e ayrılırsa
+yalnızca bilinen development origin'leri açılmalıdır; production ortamında
+`AllowAnyOrigin` kullanılmamalıdır.
+
+```powershell
+dotnet build SmartCity.slnx
+dotnet test SmartCity.slnx
+```
+
 ## Phase sınırı
 
-Phase 2; import, doğrulama amaçlı read endpoint'leri ve testlerle tamamlanır.
-Frontend, Leaflet, risk skoru, GeoPandas ve lokasyon önerisi bu Phase'e dahil değildir.
+Phase 3; harita görselleştirmesi, mevcut spatial read endpoint'leri, katman yönetimi
+ve kullanıcı koordinat seçimiyle tamamlanır. Distance analysis, en yakın acil hizmet
+sorguları, risk skoru, GeoPandas ve lokasyon önerisi Phase 4 ve sonrasına aittir.

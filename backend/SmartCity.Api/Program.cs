@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.FileProviders;
 using SmartCity.Api.ExceptionHandling;
 using SmartCity.Application.Abstractions;
 using SmartCity.Application.Configuration;
@@ -42,6 +43,10 @@ builder.Services
         tags: ["ready"]);
 
 var app = builder.Build();
+var logMissingFrontend = LoggerMessage.Define<string>(
+    LogLevel.Warning,
+    new EventId(1001, "FrontendFilesMissing"),
+    "Frontend static files were not found at {FrontendPath}");
 
 app.UseExceptionHandler();
 
@@ -49,6 +54,25 @@ app.UseExceptionHandler();
 app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/health"),
     branch => branch.UseHttpsRedirection());
+
+var frontendPath = Path.Combine(AppContext.BaseDirectory, "frontend");
+if (Directory.Exists(frontendPath))
+{
+    var frontendFiles = new PhysicalFileProvider(frontendPath);
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = frontendFiles
+    });
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = frontendFiles
+    });
+}
+else
+{
+    logMissingFrontend(app.Logger, frontendPath, null);
+}
+
 app.MapControllers();
 
 // Liveness only verifies that the API process can answer requests.

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using SmartCity.Application.Abstractions;
 using SmartCity.Infrastructure.OpenStreetMap;
 using SmartCity.Infrastructure.Persistence;
@@ -20,14 +19,10 @@ public static class DependencyInjection
 
         services.AddSingleton<OverpassResponseMapper>();
         services.AddHttpClient<IOpenStreetMapDataSource, OverpassClient>(
-            (serviceProvider, client) =>
+            client =>
             {
-                var options = serviceProvider
-                    .GetRequiredService<IOptions<OpenStreetMapOptions>>()
-                    .Value;
-
-                client.BaseAddress = new Uri(options.OverpassUrl);
-                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                // Each configured endpoint enforces its own timeout per attempt.
+                client.Timeout = Timeout.InfiniteTimeSpan;
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(
                     "SmartCityLocationIntelligence/1.0");
             });
