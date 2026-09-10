@@ -1,0 +1,66 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using SmartCity.Api.ExceptionHandling;
+using SmartCity.Application.Abstractions;
+using SmartCity.Application.Configuration;
+using SmartCity.Application.Services;
+using SmartCity.Infrastructure;
+using SmartCity.Infrastructure.OpenStreetMap;
+using SmartCity.Infrastructure.Persistence;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Container-friendly logging; avoids platform-specific Windows Event Log permissions.
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+
+var connectionString = builder.Configuration.GetConnectionString("SmartCityDatabase")
+    ?? throw new InvalidOperationException(
+        "Connection string 'SmartCityDatabase' was not found.");
+
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services
+    .AddOptions<PilotAreaOptions>()
+    .BindConfiguration(PilotAreaOptions.SectionName)
+    .Validate(options => options.IsValid(),
+        "PilotArea must contain a name, valid latitude/longitude ranges, " +
+        "South < North and West < East.")
+    .ValidateOnStart();
+builder.Services
+    .AddOptions<OpenStreetMapOptions>()
+    .BindConfiguration(OpenStreetMapOptions.SectionName)
+    .Validate(options => options.IsValid(),
+        "OpenStreetMap settings contain an invalid URL, timeout or response size limit.")
+    .ValidateOnStart();
+builder.Services.AddScoped<IImportOpenStreetMapDataService, ImportOpenStreetMapDataService>();
+builder.Services.AddInfrastructure(connectionString);
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<SmartCityDbContext>(
+        name: "postgresql",
+        tags: ["ready"]);
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+
+// Container/orchestrator probes should remain available over the internal HTTP port.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/health"),
+    branch => branch.UseHttpsRedirection());
+app.MapControllers();
+
+// Liveness only verifies that the API process can answer requests.
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+// Readiness also verifies that PostgreSQL/PostGIS is reachable.
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+});
+
+app.Run();

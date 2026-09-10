@@ -1,0 +1,25 @@
+@SmartCity.Api_HostAddress = http://localhost:5113
+
+GET {{SmartCity.Api_HostAddress}}/health/live
+
+###
+
+GET {{SmartCity.Api_HostAddress}}/health/ready
+
+###
+
+POST {{SmartCity.Api_HostAddress}}/api/import/openstreetmap
+
+###
+
+GET {{SmartCity.Api_HostAddress}}/api/hospitals
+
+###
+
+GET {{SmartCity.Api_HostAddress}}/api/fire-stations
+
+###
+
+GET {{SmartCity.Api_HostAddress}}/api/roads
+
+###

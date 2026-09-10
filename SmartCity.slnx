@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/SmartCity.Api/SmartCity.Api.csproj" />
+    <Project Path="backend/SmartCity.Application/SmartCity.Application.csproj" />
+    <Project Path="backend/SmartCity.Domain/SmartCity.Domain.csproj" />
+    <Project Path="backend/SmartCity.Infrastructure/SmartCity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmartCity.Infrastructure.Tests/SmartCity.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

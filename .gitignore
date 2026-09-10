@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.dotnet-cli/
+.nuget-packages/
+.env
+.vs/
+.vscode/
+*.user
+*.suo
+analysis-service/.venv/
+analysis-service/__pycache__/

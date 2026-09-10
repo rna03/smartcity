@@ -1,0 +1,22 @@
+services:
+  database:
+    image: postgis/postgis:17-3.5
+    container_name: smartcity-postgis
+    environment:
+      POSTGRES_DB: smartcity
+      POSTGRES_USER: smartcity
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartcity_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - smartcity_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcity -d smartcity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  smartcity_postgres_data:

@@ -1,0 +1,5 @@
+root = true
+
+[**/Persistence/Migrations/*.cs]
+# EF Core owns generated migration syntax; CA1861 is not actionable here.
+dotnet_diagnostic.CA1861.severity = none
