@@ -43,6 +43,10 @@
             <dt>Roads</dt>
             <dd id="road-count">0</dd>
           </div>
+          <div class="metric metric--incident">
+            <dt>Incidents</dt>
+            <dd id="incident-count">0</dd>
+          </div>
         </dl>
       </section>
 
@@ -80,6 +84,36 @@
         </div>
       </section>
 
+      <section class="panel-card incident-card" aria-labelledby="incident-title">
+        <p class="panel-card__label">Emergency report</p>
+        <h2 id="incident-title">Create Incident</h2>
+        <p class="muted">Select a map location, then describe the incident.</p>
+
+        <form id="incident-form" class="incident-form">
+          <label for="incident-type">Incident Type</label>
+          <select id="incident-type" name="type">
+            <option value="Fire">Fire</option>
+            <option value="Medical">Medical</option>
+            <option value="Accident">Accident</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <label for="incident-description">Description <span>(optional)</span></label>
+          <textarea id="incident-description" name="description" maxlength="500" rows="3"
+            placeholder="Briefly describe the incident"></textarea>
+
+          <button id="create-incident" class="incident-button" type="submit" disabled>
+            Create Incident
+          </button>
+        </form>
+
+        <p id="incident-status" class="incident-status" role="status" aria-live="polite" hidden></p>
+        <div id="incident-result" class="incident-result" aria-live="polite" hidden>
+          <strong id="created-incident-summary"></strong>
+          <span id="incident-recommendation"></span>
+        </div>
+      </section>
+
       <section class="legend" aria-label="Map legend">
         <h2>Map layers</h2>
         <ul>
@@ -88,6 +122,7 @@
           <li><span class="legend-symbol legend-symbol--fire" aria-hidden="true"></span>Fire Stations</li>
           <li><span class="legend-line" aria-hidden="true"></span>Main Roads</li>
           <li><span class="legend-analysis" aria-hidden="true"></span>Nearest-service analysis</li>
+          <li><span class="legend-symbol legend-symbol--incident" aria-hidden="true"></span>Incidents</li>
         </ul>
       </section>
     </aside>

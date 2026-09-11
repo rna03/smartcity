@@ -10,7 +10,11 @@ internal sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
     {
         builder.ToTable("incidents");
         builder.HasKey(incident => incident.Id);
-        builder.Property(incident => incident.IncidentType).HasMaxLength(100).IsRequired();
+        builder.Property(incident => incident.IncidentType)
+            .HasConversion<string>()
+            .HasMaxLength(100)
+            .IsRequired();
+        builder.Property(incident => incident.Description).HasMaxLength(500);
         builder.Property(incident => incident.OccurredAt).IsRequired();
         builder.Ignore(incident => incident.Latitude);
         builder.Ignore(incident => incident.Longitude);

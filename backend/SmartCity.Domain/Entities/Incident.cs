@@ -5,7 +5,8 @@ namespace SmartCity.Domain.Entities;
 public sealed class Incident
 {
     public int Id { get; set; }
-    public required string IncidentType { get; set; }
+    public IncidentType IncidentType { get; set; }
+    public string? Description { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
     public required Point Geometry { get; set; }
 

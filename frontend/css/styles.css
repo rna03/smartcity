@@ -167,6 +167,10 @@ h1 {
   border-left-color: var(--road);
 }
 
+.metric--incident {
+  border-left-color: #7654b4;
+}
+
 .metric dt {
   color: var(--slate-700);
   font-size: 0.78rem;
@@ -287,6 +291,94 @@ h1 {
   font-size: 0.82rem;
 }
 
+.incident-form {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.incident-form label {
+  color: var(--slate-700);
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.incident-form label span {
+  color: var(--slate-500);
+  font-weight: 500;
+}
+
+.incident-form select,
+.incident-form textarea {
+  background: #f8fafb;
+  border: 1px solid var(--slate-300);
+  border-radius: 8px;
+  color: var(--navy-950);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.incident-form textarea {
+  resize: vertical;
+}
+
+.incident-form select:focus,
+.incident-form textarea:focus {
+  border-color: #7654b4;
+  outline: 3px solid rgb(118 84 180 / 14%);
+}
+
+.incident-button {
+  background: #7654b4;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  margin-top: 4px;
+  padding: 10px 12px;
+}
+
+.incident-button:hover:not(:disabled) {
+  background: #5f4196;
+}
+
+.incident-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.incident-status {
+  color: var(--slate-500);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+
+.incident-status--error {
+  color: var(--danger);
+}
+
+.incident-result {
+  background: #f5f1fb;
+  border-left: 3px solid #7654b4;
+  border-radius: 8px;
+  display: grid;
+  font-size: 0.75rem;
+  gap: 4px;
+  line-height: 1.4;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.incident-result span {
+  color: var(--slate-700);
+}
+
 .legend ul {
   display: grid;
   gap: 10px;
@@ -319,6 +411,11 @@ h1 {
 .legend-symbol--fire {
   background: var(--fire);
   color: var(--fire);
+}
+
+.legend-symbol--incident {
+  background: #7654b4;
+  color: #7654b4;
 }
 
 .legend-line {
@@ -466,7 +563,7 @@ footer {
   }
 
   .metric-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metric {

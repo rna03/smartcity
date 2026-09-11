@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using SmartCity.Api.ExceptionHandling;
@@ -18,7 +19,9 @@ var connectionString = builder.Configuration.GetConnectionString("SmartCityDatab
     ?? throw new InvalidOperationException(
         "Connection string 'SmartCityDatabase' was not found.");
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services

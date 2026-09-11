@@ -1,12 +1,16 @@
 const requestTimeoutMs = 12_000;
 
-async function getJson(path) {
+async function requestJson(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), requestTimeoutMs);
 
   try {
     const response = await fetch(path, {
-      headers: { Accept: "application/json" },
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...options.headers
+      },
       signal: controller.signal
     });
 
@@ -25,6 +29,10 @@ async function getJson(path) {
   } finally {
     window.clearTimeout(timeoutId);
   }
+}
+
+function getJson(path) {
+  return requestJson(path);
 }
 
 async function readProblemDetail(response) {
@@ -59,4 +67,16 @@ export function getNearestEmergencyServices(latitude, longitude) {
   });
 
   return getJson(`/api/location-analysis/nearest?${query}`);
+}
+
+export function getIncidents() {
+  return getJson("/api/incidents");
+}
+
+export function createIncident(incident) {
+  return requestJson("/api/incidents", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(incident)
+  });
 }

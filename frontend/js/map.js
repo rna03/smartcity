@@ -48,6 +48,13 @@ const nearestFireStationStyle = {
   weight: 4
 };
 
+const incidentStyles = Object.freeze({
+  fire: { fillColor: "#c9343e", color: "#ffffff" },
+  medical: { fillColor: "#17875f", color: "#ffffff" },
+  accident: { fillColor: "#d88716", color: "#ffffff" },
+  other: { fillColor: "#7654b4", color: "#ffffff" }
+});
+
 export function initializeMap(configuration, onLocationSelected) {
   if (!window.L) {
     throw new Error("Leaflet could not be loaded. Check the browser network connection.");
@@ -68,6 +75,7 @@ export function initializeMap(configuration, onLocationSelected) {
     hospitals: window.L.layerGroup().addTo(map),
     fireStations: window.L.layerGroup().addTo(map),
     roads: window.L.layerGroup().addTo(map),
+    incidents: window.L.layerGroup().addTo(map),
     analysis: window.L.layerGroup().addTo(map)
   };
 
@@ -76,6 +84,7 @@ export function initializeMap(configuration, onLocationSelected) {
     Hospitals: layers.hospitals,
     "Fire Stations": layers.fireStations,
     "Main Roads": layers.roads,
+    Incidents: layers.incidents,
     Analysis: layers.analysis
   }, {
     collapsed: window.matchMedia("(max-width: 780px)").matches,
@@ -150,6 +159,46 @@ export function renderRoads(state, roads) {
 
   warnAboutSkippedFeatures("roads", skippedCount);
   return renderedCount;
+}
+
+export function renderIncidents(state, incidents) {
+  state.layers.incidents.clearLayers();
+  let renderedCount = 0;
+  let skippedCount = 0;
+
+  for (const incident of incidents) {
+    if (renderIncident(state, incident)) {
+      renderedCount += 1;
+    } else {
+      skippedCount += 1;
+    }
+  }
+
+  warnAboutSkippedFeatures("incidents", skippedCount);
+  return renderedCount;
+}
+
+export function renderIncident(state, incident, recommendation = null) {
+  const latLng = toLeafletLatLng(incident);
+  if (!latLng) {
+    return false;
+  }
+
+  const incidentType = String(incident.type || "other").toLowerCase();
+  const typeStyle = incidentStyles[incidentType] || incidentStyles.other;
+  window.L.circleMarker(latLng, {
+    bubblingMouseEvents: false,
+    ...typeStyle,
+    fillOpacity: 0.95,
+    radius: 9,
+    weight: 3
+  })
+    .bindPopup(createIncidentPopup(incident, recommendation))
+    .bindTooltip(`${formatIncidentType(incident.type)} incident`)
+    .addTo(state.layers.incidents);
+
+  state.dataBounds.extend(latLng);
+  return true;
 }
 
 export function fitMapToData(state) {
@@ -340,6 +389,33 @@ function createAnalysisPopup(service, label) {
     `<dt>External ID</dt><dd>${escapeHtml(service.externalId || "—")}</dd>` +
     `<dt>Distance</dt><dd>${formatDistance(service.distanceMeters)}</dd></dl>` +
     `</div>`;
+}
+
+function createIncidentPopup(incident, recommendation) {
+  const description = incident.description
+    ? `<dt>Description</dt><dd>${escapeHtml(incident.description)}</dd>`
+    : "";
+  const recommendedService = recommendation
+    ? `<dt>Recommended</dt><dd>${escapeHtml(recommendation.name || "Unnamed service")}</dd>` +
+      `<dt>Distance</dt><dd>${formatDistance(recommendation.distanceMeters)}</dd>`
+    : `<dt>Recommended</dt><dd>No matching service available</dd>`;
+
+  return `<div class="feature-popup">` +
+    `<h3>${escapeHtml(formatIncidentType(incident.type))} Incident</h3>` +
+    `<dl><dt>Created</dt><dd>${escapeHtml(formatDate(incident.createdAtUtc))}</dd>` +
+    description +
+    recommendedService +
+    `</dl></div>`;
+}
+
+function formatIncidentType(value) {
+  const type = String(value || "Other");
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
 }
 
 function formatDistance(distanceMeters) {

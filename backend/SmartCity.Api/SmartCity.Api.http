@@ -30,3 +30,20 @@ GET {{SmartCity.Api_HostAddress}}/api/roads
 ### Nearest emergency services (Phase 4A)
 GET {{SmartCity.Api_HostAddress}}/api/location-analysis/nearest?latitude=41.04&longitude=29.01
 Accept: application/json
+
+###
+### List incidents (Phase 4B)
+GET {{SmartCity.Api_HostAddress}}/api/incidents
+Accept: application/json
+
+###
+### Create incident (Phase 4B)
+POST {{SmartCity.Api_HostAddress}}/api/incidents
+Content-Type: application/json
+
+{
+  "type": "Fire",
+  "latitude": 41.04,
+  "longitude": 29.01,
+  "description": "Building fire"
+}

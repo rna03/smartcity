@@ -147,6 +147,36 @@ Harita seçilen noktayı ve en yakın tesisleri vurgular. Aradaki kesik çizgile
 rotası değildir; yalnızca straight-line/geodesic mesafe görselleştirmesidir.
 Latitude/longitude aralık dışı, eksik veya sonlu olmayan değerler HTTP 400 döndürür.
 
+## Phase 4B: Incident oluşturma ve servis önerisi
+
+Incident, kullanıcının haritada seçtiği WGS 84 noktada oluşturduğu acil olay
+kaydıdır. Desteklenen türler `Fire`, `Medical`, `Accident` ve `Other` değerleridir.
+Seçimden sonra sol panelde tür ve en fazla 500 karakterlik opsiyonel açıklama
+girilerek incident oluşturulur:
+
+```http
+POST /api/incidents
+Content-Type: application/json
+
+{
+  "type": "Fire",
+  "latitude": 41.04,
+  "longitude": 29.01,
+  "description": "Building fire"
+}
+```
+
+Başarılı istek HTTP 201 döndürür. `GET /api/incidents` kayıtlı incident'ları
+oluşturulma zamanı azalan sırada listeler ve frontend bunları ayrı, kalıcı bir
+Leaflet katmanında gösterir.
+
+Öneri eşlemesi şöyledir: `Fire` → en yakın itfaiye, `Medical` ve `Accident` →
+en yakın hastane, `Other` → mevcut hastane/itfaiye sonuçlarından mesafesi daha
+kısa olan servis. Uygun türde servis yoksa `recommendedService` kontrollü biçimde
+`null` olur. En yakın servis bilgisi Phase 4A'nın PostGIS geography analizinden
+yeniden kullanılır. Bu öneri ve gösterilen mesafe gerçek yol rotası, yolculuk
+süresi veya dispatch kararı değildir.
+
 ## Çalıştırma
 
 Gereksinimler: .NET 10 SDK ve Docker Desktop (Compose v2).
@@ -183,6 +213,10 @@ Invoke-RestMethod http://localhost:5113/api/hospitals
 Invoke-RestMethod http://localhost:5113/api/fire-stations
 Invoke-RestMethod http://localhost:5113/api/roads
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
+Invoke-RestMethod http://localhost:5113/api/incidents
+Invoke-RestMethod -Method Post http://localhost:5113/api/incidents `
+  -ContentType "application/json" `
+  -Body '{"type":"Fire","latitude":41.04,"longitude":29.01,"description":"Building fire"}'
 Invoke-WebRequest http://localhost:5113/health/live
 Invoke-WebRequest http://localhost:5113/health/ready
 ```

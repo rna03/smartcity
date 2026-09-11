@@ -1,6 +1,8 @@
 import {
+  createIncident,
   getFireStations,
   getHospitals,
+  getIncidents,
   getMapConfiguration,
   getNearestEmergencyServices,
   getRoads
@@ -8,6 +10,8 @@ import {
 import {
   fitMapToData,
   initializeMap,
+  renderIncident,
+  renderIncidents,
   renderNearestEmergencyServices,
   renderFireStations,
   renderHospitals,
@@ -33,6 +37,8 @@ async function startApplication() {
   const errors = [];
   let selectedLocation = null;
   let selectionVersion = 0;
+  let incidentRequestPending = false;
+  let incidentCount = 0;
 
   try {
     const configuration = await loadMapConfiguration(errors);
@@ -41,8 +47,9 @@ async function startApplication() {
     const mapState = initializeMap(configuration, (location) => {
       selectedLocation = location;
       selectionVersion += 1;
-      showSelectedLocation(location);
+      showSelectedLocation(location, incidentRequestPending);
       resetAnalysisPanel();
+      resetIncidentPanel();
     });
     configureAnalysisButton(
       mapState,
@@ -55,7 +62,15 @@ async function startApplication() {
         getFireStations,
         renderFireStations,
         "#fire-station-count"),
-      createLayerRequest("Roads", getRoads, renderRoads, "#road-count")
+      createLayerRequest("Roads", getRoads, renderRoads, "#road-count"),
+      createLayerRequest(
+        "Incidents",
+        getIncidents,
+        (state, incidents) => {
+          incidentCount = renderIncidents(state, incidents);
+          return incidentCount;
+        },
+        "#incident-count")
     ];
 
     const results = await Promise.allSettled(
@@ -80,12 +95,60 @@ async function startApplication() {
     });
 
     fitMapToData(mapState);
+    configureIncidentForm(
+      () => selectedLocation,
+      (isPending) => {
+        incidentRequestPending = isPending;
+      },
+      (result) => {
+        if (renderIncident(mapState, result.incident, result.recommendedService)) {
+          incidentCount += 1;
+          document.querySelector("#incident-count").textContent =
+            incidentCount.toLocaleString();
+        }
+      });
   } catch (error) {
     errors.push(getErrorMessage(error));
   } finally {
     loadingIndicator.hidden = true;
     showErrors(errors);
   }
+}
+
+function configureIncidentForm(
+  getSelectedLocation,
+  onPendingChanged,
+  onIncidentCreated) {
+  const form = document.querySelector("#incident-form");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const location = getSelectedLocation();
+    if (!location) {
+      return;
+    }
+
+    onPendingChanged(true);
+    setIncidentLoading(true);
+
+    try {
+      const result = await createIncident({
+        type: document.querySelector("#incident-type").value,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        description: document.querySelector("#incident-description").value || null
+      });
+
+      onIncidentCreated(result);
+      showIncidentResult(result);
+      document.querySelector("#incident-description").value = "";
+    } catch (error) {
+      showIncidentFailure(getErrorMessage(error));
+    } finally {
+      onPendingChanged(false);
+      setIncidentLoading(false, Boolean(getSelectedLocation()));
+    }
+  });
 }
 
 function configureAnalysisButton(mapState, getSelectedLocation, getSelectionVersion) {
@@ -136,7 +199,7 @@ function createLayerRequest(label, load, render, countSelector) {
   return { countSelector, label, load, render };
 }
 
-function showSelectedLocation(location) {
+function showSelectedLocation(location, incidentRequestPending) {
   document.querySelector("#selected-location-help").hidden = true;
   document.querySelector("#selected-coordinates").hidden = false;
   document.querySelector("#selected-latitude").textContent =
@@ -146,12 +209,54 @@ function showSelectedLocation(location) {
   const button = document.querySelector("#find-nearest-services");
   button.disabled = false;
   button.textContent = "Find Nearest Emergency Services";
+  document.querySelector("#create-incident").disabled = incidentRequestPending;
 }
 
 function resetAnalysisPanel() {
   document.querySelector("#analysis-results").hidden = true;
   document.querySelector("#analysis-status").hidden = true;
   document.querySelector("#analysis-status").textContent = "";
+}
+
+function resetIncidentPanel() {
+  document.querySelector("#incident-result").hidden = true;
+  const status = document.querySelector("#incident-status");
+  status.hidden = true;
+  status.textContent = "";
+  status.classList.remove("incident-status--error");
+}
+
+function setIncidentLoading(isLoading, hasSelectedLocation = true) {
+  const button = document.querySelector("#create-incident");
+  button.disabled = isLoading || !hasSelectedLocation;
+  button.textContent = isLoading ? "Creating incident..." : "Create Incident";
+
+  if (isLoading) {
+    const status = document.querySelector("#incident-status");
+    status.textContent = "Saving incident and finding the recommended service...";
+    status.classList.remove("incident-status--error");
+    status.hidden = false;
+    document.querySelector("#incident-result").hidden = true;
+  }
+}
+
+function showIncidentResult(result) {
+  const recommendation = result.recommendedService;
+  document.querySelector("#incident-status").hidden = true;
+  document.querySelector("#created-incident-summary").textContent =
+    `${result.incident.type} incident #${result.incident.id} was created.`;
+  document.querySelector("#incident-recommendation").textContent = recommendation
+    ? `${recommendation.name} (${formatDistance(recommendation.distanceMeters)})`
+    : "No matching emergency service is currently available.";
+  document.querySelector("#incident-result").hidden = false;
+}
+
+function showIncidentFailure(message) {
+  const status = document.querySelector("#incident-status");
+  status.textContent = message;
+  status.classList.add("incident-status--error");
+  status.hidden = false;
+  document.querySelector("#incident-result").hidden = true;
 }
 
 function setAnalysisLoading(isLoading) {
