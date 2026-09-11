@@ -8,7 +8,8 @@ namespace SmartCity.Api.Controllers;
 [Route("api/location-analysis")]
 public sealed class LocationAnalysisController(
     ILocationAnalysisService locationAnalysisService,
-    ICoverageAnalysisService coverageAnalysisService)
+    ICoverageAnalysisService coverageAnalysisService,
+    IAccessibilityAnalysisService accessibilityAnalysisService)
     : ControllerBase
 {
     [HttpGet("nearest")]
@@ -47,6 +48,27 @@ public sealed class LocationAnalysisController(
         }
 
         var result = await coverageAnalysisService.AnalyzeAsync(
+            latitude!.Value,
+            longitude!.Value,
+            cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("accessibility")]
+    [ProducesResponseType<AccessibilityAnalysisResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<AccessibilityAnalysisResponse>> GetAccessibility(
+        [FromQuery] double? latitude,
+        [FromQuery] double? longitude,
+        CancellationToken cancellationToken)
+    {
+        if (!LocationCoordinateValidation.IsValid(latitude, longitude))
+        {
+            return BadRequest(CreateInvalidCoordinatesProblem());
+        }
+
+        var result = await accessibilityAnalysisService.AnalyzeAsync(
             latitude!.Value,
             longitude!.Value,
             cancellationToken);

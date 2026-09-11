@@ -37,6 +37,11 @@ GET {{SmartCity.Api_HostAddress}}/api/location-analysis/coverage?latitude=41.04&
 Accept: application/json
 
 ###
+
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/accessibility?latitude=41.04&longitude=29.01
+Accept: application/json
+
+###
 ### List incidents (Phase 4B)
 GET {{SmartCity.Api_HostAddress}}/api/incidents
 Accept: application/json

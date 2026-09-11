@@ -199,6 +199,57 @@ itfaiye ve overall sonuçlarını renkli durum rozetleriyle gösterir. Hesaplama
 PostGIS geography tabanlı straight-line/geodesic metre mesafesine dayanır; yol
 rotası, yolculuk süresi veya gerçek operasyonel erişim süresi değildir.
 
+## Phase 4C-2: Açıklanabilir acil hizmet erişilebilirlik skoru
+
+Erişilebilirlik analizi, haritada seçilen noktaya en yakın hastane ve itfaiye
+istasyonunun Phase 4A tarafından metre cinsinden döndürülen mesafelerini kullanır.
+Her hizmet en fazla 50 puan katkı sağlar:
+
+| En yakın hizmet mesafesi | Hizmet puanı |
+| --- | ---: |
+| 1.000 m veya daha az | 50 |
+| 1.000 m'den fazla, 2.000 m veya daha az | 45 |
+| 2.000 m'den fazla, 3.000 m veya daha az | 35 |
+| 3.000 m'den fazla, 5.000 m veya daha az | 25 |
+| 5.000 m'den fazla | 10 |
+| Hizmet bulunamadı | 0 |
+
+Hastane ve itfaiye puanlarının toplamı 0–100 aralığındaki erişilebilirlik
+skorudur. Toplam skorun açıklanabilir seviye karşılığı şöyledir:
+
+| Toplam skor | Erişilebilirlik seviyesi |
+| --- | --- |
+| 80–100 | `Excellent` |
+| 60–79 | `Good` |
+| 40–59 | `Moderate` |
+| 20–39 | `Poor` |
+| 0–19 | `Critical` |
+
+```http
+GET /api/location-analysis/accessibility?latitude=41.04&longitude=29.01
+```
+
+Örnek response:
+
+```json
+{
+  "selectedLocation": { "latitude": 41.04, "longitude": 29.01 },
+  "hospital": { "distanceMeters": 1697.68, "score": 45 },
+  "fireStation": { "distanceMeters": 1266.68, "score": 45 },
+  "totalScore": 90,
+  "accessibilityLevel": "Excellent"
+}
+```
+
+Frontend'deki **Analyze Accessibility / Erişilebilirliği Analiz Et** düğmesi
+toplam skoru, erişilebilirlik seviyesini ve iki hizmetin ayrı katkılarını
+gösterir. Backend enum değerleri İngilizce kalır; yalnızca kullanıcıya gösterilen
+metin mevcut TR/EN yerelleştirme katmanında çevrilir.
+
+Bu skor straight-line/geodesic mekânsal mesafeyi kullanır. Yolculuk süresini,
+yol ağı rotasını, trafik koşullarını veya gerçek acil durum sevk kararlarını
+temsil etmez.
+
 ## Çalıştırma
 
 Gereksinimler: .NET 10 SDK ve Docker Desktop (Compose v2).
@@ -236,6 +287,7 @@ Invoke-RestMethod http://localhost:5113/api/fire-stations
 Invoke-RestMethod http://localhost:5113/api/roads
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/coverage?latitude=41.04&longitude=29.01"
+Invoke-RestMethod "http://localhost:5113/api/location-analysis/accessibility?latitude=41.04&longitude=29.01"
 Invoke-RestMethod http://localhost:5113/api/incidents
 Invoke-RestMethod -Method Post http://localhost:5113/api/incidents `
   -ContentType "application/json" `

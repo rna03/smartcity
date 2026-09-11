@@ -116,6 +116,44 @@
           </div>
           <p class="analysis-note" data-i18n="coverageNote">Coverage uses straight-line geodesic distance, not travel time.</p>
         </div>
+
+        <button id="analyze-accessibility" class="accessibility-button" type="button" disabled
+          data-i18n="analyzeAccessibility">
+          Analyze Accessibility
+        </button>
+        <p id="accessibility-status" class="accessibility-status" role="status"
+          aria-live="polite" hidden></p>
+        <div id="accessibility-results" class="accessibility-results" aria-live="polite" hidden>
+          <div class="accessibility-score-card">
+            <span data-i18n="accessibilityScore">Accessibility Score</span>
+            <strong><span id="accessibility-total-score">—</span> <small>/ 100</small></strong>
+            <div id="accessibility-score-progress" class="accessibility-score-progress"
+              role="progressbar" aria-label="Accessibility Score"
+              data-i18n-aria-label="accessibilityScore" aria-valuemin="0" aria-valuemax="100"
+              aria-valuenow="0">
+              <span id="accessibility-score-fill" class="accessibility-score-fill"></span>
+            </div>
+          </div>
+          <div class="accessibility-level-row">
+            <span data-i18n="accessibilityLevel">Accessibility Level</span>
+            <strong id="accessibility-level" class="coverage-badge accessibility-badge">—</strong>
+          </div>
+          <div class="accessibility-contribution accessibility-contribution--hospital">
+            <div>
+              <span data-i18n="hospitalContribution">Hospital Contribution</span>
+              <small id="hospital-accessibility-distance">—</small>
+            </div>
+            <strong><span id="hospital-accessibility-score">—</span> / 50</strong>
+          </div>
+          <div class="accessibility-contribution accessibility-contribution--fire">
+            <div>
+              <span data-i18n="fireStationContribution">Fire Station Contribution</span>
+              <small id="fire-accessibility-distance">—</small>
+            </div>
+            <strong><span id="fire-accessibility-score">—</span> / 50</strong>
+          </div>
+          <p class="analysis-note" data-i18n="accessibilityExplanation">This score is based on straight-line distance to the nearest hospital and fire station.</p>
+        </div>
       </section>
 
       <section class="panel-card incident-card" aria-labelledby="incident-title">

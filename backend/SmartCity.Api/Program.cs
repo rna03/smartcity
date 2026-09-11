@@ -39,6 +39,7 @@ builder.Services
     .ValidateOnStart();
 builder.Services.AddScoped<IImportOpenStreetMapDataService, ImportOpenStreetMapDataService>();
 builder.Services.AddScoped<ICoverageAnalysisService, CoverageAnalysisService>();
+builder.Services.AddScoped<IAccessibilityAnalysisService, AccessibilityAnalysisService>();
 builder.Services.AddInfrastructure(connectionString);
 builder.Services
     .AddHealthChecks()

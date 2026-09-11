@@ -85,6 +85,15 @@ export function getCoverageAnalysis(latitude, longitude) {
   return getJson(`/api/location-analysis/coverage?${query}`);
 }
 
+export function getAccessibilityAnalysis(latitude, longitude) {
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude)
+  });
+
+  return getJson(`/api/location-analysis/accessibility?${query}`);
+}
+
 export function getIncidents() {
   return getJson("/api/incidents");
 }

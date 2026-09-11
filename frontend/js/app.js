@@ -1,5 +1,6 @@
 import {
   createIncident,
+  getAccessibilityAnalysis,
   getCoverageAnalysis,
   getFireStations,
   getHospitals,
@@ -41,6 +42,7 @@ const fallbackMapConfiguration = Object.freeze({
 });
 
 const uiState = {
+  accessibility: { error: null, isLoading: false, result: null },
   analysis: { error: null, isLoading: false, result: null },
   coverage: { error: null, isLoading: false, result: null },
   incident: { error: null, isLoading: false, result: null },
@@ -69,12 +71,14 @@ async function startApplication() {
     const mapState = initializeMap(configuration, (location) => {
       selectedLocation = location;
       selectionVersion += 1;
+      uiState.accessibility = { error: null, isLoading: false, result: null };
       uiState.analysis = { error: null, isLoading: false, result: null };
       uiState.coverage = { error: null, isLoading: false, result: null };
       uiState.incident = { error: null, isLoading: false, result: null };
       showSelectedLocation(location, incidentRequestPending);
       resetAnalysisPanel();
       resetCoveragePanel();
+      resetAccessibilityPanel();
       resetIncidentPanel();
     });
     uiState.mapState = mapState;
@@ -83,6 +87,9 @@ async function startApplication() {
       () => selectedLocation,
       () => selectionVersion);
     configureCoverageButton(
+      () => selectedLocation,
+      () => selectionVersion);
+    configureAccessibilityButton(
       () => selectedLocation,
       () => selectionVersion);
     const dataRequests = [
@@ -155,6 +162,7 @@ function refreshLocalizedUi() {
   refreshMetricCounts();
   refreshAnalysisUi();
   refreshCoverageUi();
+  refreshAccessibilityUi();
   refreshIncidentUi();
   showErrors(uiState.startupErrors);
 }
@@ -189,6 +197,24 @@ function refreshCoverageUi() {
   }
 }
 
+function refreshAccessibilityUi() {
+  const button = document.querySelector("#analyze-accessibility");
+  button.textContent = t(uiState.accessibility.isLoading
+    ? "analyzingAccessibility"
+    : "analyzeAccessibility");
+
+  if (uiState.accessibility.isLoading) {
+    showStatus(
+      "#accessibility-status",
+      "calculatingAccessibilityScore",
+      "accessibility-status--error");
+  } else if (uiState.accessibility.error) {
+    showAccessibilityFailure(uiState.accessibility.error);
+  } else if (uiState.accessibility.result) {
+    showAccessibilityResults(uiState.accessibility.result);
+  }
+}
+
 function refreshIncidentUi() {
   const button = document.querySelector("#create-incident");
   button.textContent = t(uiState.incident.isLoading
@@ -209,6 +235,41 @@ function showStatus(selector, messageKey, errorClass) {
   status.textContent = t(messageKey);
   status.classList.remove(errorClass);
   status.hidden = false;
+}
+
+function configureAccessibilityButton(getSelectedLocation, getSelectionVersion) {
+  const button = document.querySelector("#analyze-accessibility");
+
+  button.addEventListener("click", async () => {
+    const location = getSelectedLocation();
+    if (!location) {
+      showAccessibilityFailure(createUiError("selectPointFirst"));
+      return;
+    }
+
+    const requestVersion = getSelectionVersion();
+    setAccessibilityLoading(true);
+
+    try {
+      const result = await getAccessibilityAnalysis(
+        location.latitude,
+        location.longitude);
+
+      if (requestVersion !== getSelectionVersion()) {
+        return;
+      }
+
+      showAccessibilityResults(result);
+    } catch (error) {
+      if (requestVersion === getSelectionVersion()) {
+        showAccessibilityFailure(error);
+      }
+    } finally {
+      if (requestVersion === getSelectionVersion()) {
+        setAccessibilityLoading(false);
+      }
+    }
+  });
 }
 
 function configureCoverageButton(getSelectedLocation, getSelectionVersion) {
@@ -345,6 +406,9 @@ function showSelectedLocation(location, incidentRequestPending) {
   const coverageButton = document.querySelector("#analyze-coverage");
   coverageButton.disabled = false;
   coverageButton.textContent = t("analyzeCoverage");
+  const accessibilityButton = document.querySelector("#analyze-accessibility");
+  accessibilityButton.disabled = false;
+  accessibilityButton.textContent = t("analyzeAccessibility");
   document.querySelector("#create-incident").disabled = incidentRequestPending;
 }
 
@@ -422,6 +486,107 @@ function showCoverageFailure(error) {
   status.classList.add("coverage-status--error");
   status.hidden = false;
   document.querySelector("#coverage-results").hidden = true;
+}
+
+function resetAccessibilityPanel() {
+  document.querySelector("#accessibility-results").hidden = true;
+  const status = document.querySelector("#accessibility-status");
+  status.hidden = true;
+  status.textContent = "";
+  status.classList.remove("accessibility-status--error");
+}
+
+function setAccessibilityLoading(isLoading) {
+  uiState.accessibility.isLoading = isLoading;
+  if (isLoading) {
+    uiState.accessibility.error = null;
+    uiState.accessibility.result = null;
+  }
+
+  const button = document.querySelector("#analyze-accessibility");
+  button.disabled = isLoading;
+  button.textContent = t(isLoading
+    ? "analyzingAccessibility"
+    : "analyzeAccessibility");
+
+  if (isLoading) {
+    showStatus(
+      "#accessibility-status",
+      "calculatingAccessibilityScore",
+      "accessibility-status--error");
+    document.querySelector("#accessibility-results").hidden = true;
+  }
+}
+
+function showAccessibilityResults(result) {
+  uiState.accessibility.error = null;
+  uiState.accessibility.result = result;
+
+  const totalScore = normalizeScore(result.totalScore, 100);
+  document.querySelector("#accessibility-total-score").textContent =
+    new Intl.NumberFormat(getLocale()).format(totalScore);
+  updateAccessibilityContribution(
+    "#hospital-accessibility-score",
+    "#hospital-accessibility-distance",
+    result.hospital);
+  updateAccessibilityContribution(
+    "#fire-accessibility-score",
+    "#fire-accessibility-distance",
+    result.fireStation);
+
+  const level = setAccessibilityLevel(
+    document.querySelector("#accessibility-level"),
+    result.accessibilityLevel);
+  const progress = document.querySelector("#accessibility-score-progress");
+  const fill = document.querySelector("#accessibility-score-fill");
+  progress.setAttribute("aria-valuenow", String(totalScore));
+  progress.setAttribute(
+    "aria-valuetext",
+    `${totalScore} / 100, ${level === "unknown" ? t("unknown") : t(level)}`);
+  fill.className = `accessibility-score-fill accessibility-score-fill--${level}`;
+  fill.style.width = `${totalScore}%`;
+
+  document.querySelector("#accessibility-status").hidden = true;
+  document.querySelector("#accessibility-results").hidden = false;
+}
+
+function updateAccessibilityContribution(
+  scoreSelector,
+  distanceSelector,
+  serviceScore) {
+  const score = normalizeScore(serviceScore?.score, 50);
+  document.querySelector(scoreSelector).textContent =
+    new Intl.NumberFormat(getLocale()).format(score);
+  document.querySelector(distanceSelector).textContent =
+    serviceScore?.distanceMeters === null ||
+    serviceScore?.distanceMeters === undefined
+      ? t("distanceUnavailable")
+      : formatDistance(serviceScore.distanceMeters);
+}
+
+function setAccessibilityLevel(element, accessibilityLevel) {
+  const normalized = String(accessibilityLevel || "").toLowerCase();
+  const supportedLevels = ["excellent", "good", "moderate", "poor", "critical"];
+  const level = supportedLevels.includes(normalized) ? normalized : "unknown";
+  element.className =
+    `coverage-badge accessibility-badge coverage-badge--${level}`;
+  element.textContent = level === "unknown" ? t("unknown") : t(level);
+  return level;
+}
+
+function normalizeScore(value, maximum) {
+  const score = Number(value);
+  return Number.isInteger(score) && score >= 0 && score <= maximum ? score : 0;
+}
+
+function showAccessibilityFailure(error) {
+  uiState.accessibility.error = error;
+  uiState.accessibility.result = null;
+  const status = document.querySelector("#accessibility-status");
+  status.textContent = getErrorMessage(error);
+  status.classList.add("accessibility-status--error");
+  status.hidden = false;
+  document.querySelector("#accessibility-results").hidden = true;
 }
 
 function resetIncidentPanel() {
