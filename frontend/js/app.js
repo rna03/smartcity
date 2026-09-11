@@ -2,11 +2,13 @@ import {
   getFireStations,
   getHospitals,
   getMapConfiguration,
+  getNearestEmergencyServices,
   getRoads
 } from "./api.js";
 import {
   fitMapToData,
   initializeMap,
+  renderNearestEmergencyServices,
   renderFireStations,
   renderHospitals,
   renderRoads
@@ -29,12 +31,23 @@ document.addEventListener("DOMContentLoaded", startApplication);
 async function startApplication() {
   const loadingIndicator = document.querySelector("#loading-indicator");
   const errors = [];
+  let selectedLocation = null;
+  let selectionVersion = 0;
 
   try {
     const configuration = await loadMapConfiguration(errors);
     document.querySelector("#pilot-area").textContent = configuration.pilotArea;
 
-    const mapState = initializeMap(configuration, showSelectedLocation);
+    const mapState = initializeMap(configuration, (location) => {
+      selectedLocation = location;
+      selectionVersion += 1;
+      showSelectedLocation(location);
+      resetAnalysisPanel();
+    });
+    configureAnalysisButton(
+      mapState,
+      () => selectedLocation,
+      () => selectionVersion);
     const dataRequests = [
       createLayerRequest("Hospitals", getHospitals, renderHospitals, "#hospital-count"),
       createLayerRequest(
@@ -75,6 +88,41 @@ async function startApplication() {
   }
 }
 
+function configureAnalysisButton(mapState, getSelectedLocation, getSelectionVersion) {
+  const button = document.querySelector("#find-nearest-services");
+
+  button.addEventListener("click", async () => {
+    const location = getSelectedLocation();
+    if (!location) {
+      return;
+    }
+
+    const requestVersion = getSelectionVersion();
+    setAnalysisLoading(true);
+
+    try {
+      const result = await getNearestEmergencyServices(
+        location.latitude,
+        location.longitude);
+
+      if (requestVersion !== getSelectionVersion()) {
+        return;
+      }
+
+      renderNearestEmergencyServices(mapState, result);
+      showAnalysisResults(result);
+    } catch (error) {
+      if (requestVersion === getSelectionVersion()) {
+        showAnalysisFailure(getErrorMessage(error));
+      }
+    } finally {
+      if (requestVersion === getSelectionVersion()) {
+        setAnalysisLoading(false);
+      }
+    }
+  });
+}
+
 async function loadMapConfiguration(errors) {
   try {
     return await getMapConfiguration();
@@ -95,6 +143,80 @@ function showSelectedLocation(location) {
     location.latitude.toFixed(6);
   document.querySelector("#selected-longitude").textContent =
     location.longitude.toFixed(6);
+  const button = document.querySelector("#find-nearest-services");
+  button.disabled = false;
+  button.textContent = "Find Nearest Emergency Services";
+}
+
+function resetAnalysisPanel() {
+  document.querySelector("#analysis-results").hidden = true;
+  document.querySelector("#analysis-status").hidden = true;
+  document.querySelector("#analysis-status").textContent = "";
+}
+
+function setAnalysisLoading(isLoading) {
+  const button = document.querySelector("#find-nearest-services");
+  button.disabled = isLoading;
+  button.textContent = isLoading
+    ? "Finding nearest services..."
+    : "Find Nearest Emergency Services";
+
+  if (isLoading) {
+    const status = document.querySelector("#analysis-status");
+    status.textContent = "Calculating PostGIS straight-line distances...";
+    status.classList.remove("analysis-status--error");
+    status.hidden = false;
+    document.querySelector("#analysis-results").hidden = true;
+  }
+}
+
+function showAnalysisResults(result) {
+  updateServiceResult(
+    "#nearest-hospital-name",
+    "#nearest-hospital-distance",
+    result.nearestHospital,
+    "No hospital records are available.");
+  updateServiceResult(
+    "#nearest-fire-station-name",
+    "#nearest-fire-station-distance",
+    result.nearestFireStation,
+    "No fire station records are available.");
+
+  document.querySelector("#analysis-status").hidden = true;
+  document.querySelector("#analysis-results").hidden = false;
+}
+
+function updateServiceResult(nameSelector, distanceSelector, service, emptyMessage) {
+  const name = document.querySelector(nameSelector);
+  const distance = document.querySelector(distanceSelector);
+
+  if (!service) {
+    name.textContent = emptyMessage;
+    distance.textContent = "—";
+    return;
+  }
+
+  name.textContent = service.name || "Unnamed service";
+  distance.textContent = formatDistance(service.distanceMeters);
+}
+
+function showAnalysisFailure(message) {
+  const status = document.querySelector("#analysis-status");
+  status.textContent = message;
+  status.classList.add("analysis-status--error");
+  status.hidden = false;
+  document.querySelector("#analysis-results").hidden = true;
+}
+
+function formatDistance(distanceMeters) {
+  const distance = Number(distanceMeters);
+  if (!Number.isFinite(distance) || distance < 0) {
+    return "Distance unavailable";
+  }
+
+  return distance < 1000
+    ? `${Math.round(distance)} m`
+    : `${(distance / 1000).toFixed(2)} km`;
 }
 
 function showErrors(errors) {

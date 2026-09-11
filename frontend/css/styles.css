@@ -205,6 +205,88 @@ h1 {
   margin: 0;
 }
 
+.analysis-button {
+  background: var(--navy-800);
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  line-height: 1.35;
+  margin-top: 14px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.analysis-button:hover:not(:disabled) {
+  background: #16849b;
+}
+
+.analysis-button:focus-visible {
+  outline: 3px solid rgb(22 132 155 / 30%);
+  outline-offset: 2px;
+}
+
+.analysis-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.analysis-status,
+.analysis-note {
+  color: var(--slate-500);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+
+.analysis-status--error {
+  color: var(--danger);
+}
+
+.analysis-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.analysis-result {
+  border-left: 3px solid var(--slate-300);
+  border-radius: 8px;
+  background: #f7fafb;
+  padding: 9px 10px;
+}
+
+.analysis-result--hospital {
+  border-left-color: var(--hospital);
+}
+
+.analysis-result--fire {
+  border-left-color: var(--fire);
+}
+
+.analysis-result h3 {
+  color: var(--slate-500);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.analysis-result p {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+  margin: 4px 0;
+}
+
+.analysis-result strong {
+  color: var(--navy-800);
+  font-size: 0.82rem;
+}
+
 .legend ul {
   display: grid;
   gap: 10px;
@@ -250,6 +332,12 @@ h1 {
   background: rgb(22 132 155 / 10%);
   border: 2px dashed #16849b;
   height: 12px;
+  width: 20px;
+}
+
+.legend-analysis {
+  border-bottom: 2px dashed #16849b;
+  height: 1px;
   width: 20px;
 }
 

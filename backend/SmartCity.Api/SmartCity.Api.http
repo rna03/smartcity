@@ -27,3 +27,6 @@ GET {{SmartCity.Api_HostAddress}}/api/fire-stations
 GET {{SmartCity.Api_HostAddress}}/api/roads
 
 ###
+### Nearest emergency services (Phase 4A)
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/nearest?latitude=41.04&longitude=29.01
+Accept: application/json

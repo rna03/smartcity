@@ -32,6 +32,7 @@ public static class DependencyInjection
             serviceProvider.GetRequiredService<OpenStreetMapSpatialDataStore>());
         services.AddScoped<ISpatialDataQueryService>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenStreetMapSpatialDataStore>());
+        services.AddScoped<ILocationAnalysisService, PostGisLocationAnalysisService>();
 
         return services;
     }

@@ -60,6 +60,24 @@
             <dd id="selected-longitude">—</dd>
           </div>
         </dl>
+
+        <button id="find-nearest-services" class="analysis-button" type="button" disabled>
+          Find Nearest Emergency Services
+        </button>
+        <p id="analysis-status" class="analysis-status" role="status" aria-live="polite" hidden></p>
+        <div id="analysis-results" class="analysis-results" aria-live="polite" hidden>
+          <article class="analysis-result analysis-result--hospital">
+            <h3>Nearest Hospital</h3>
+            <p id="nearest-hospital-name">—</p>
+            <strong id="nearest-hospital-distance">—</strong>
+          </article>
+          <article class="analysis-result analysis-result--fire">
+            <h3>Nearest Fire Station</h3>
+            <p id="nearest-fire-station-name">—</p>
+            <strong id="nearest-fire-station-distance">—</strong>
+          </article>
+          <p class="analysis-note">Dashed lines visualize straight-line geodesic distance, not road routes.</p>
+        </div>
       </section>
 
       <section class="legend" aria-label="Map legend">
@@ -69,6 +87,7 @@
           <li><span class="legend-symbol legend-symbol--hospital" aria-hidden="true"></span>Hospitals</li>
           <li><span class="legend-symbol legend-symbol--fire" aria-hidden="true"></span>Fire Stations</li>
           <li><span class="legend-line" aria-hidden="true"></span>Main Roads</li>
+          <li><span class="legend-analysis" aria-hidden="true"></span>Nearest-service analysis</li>
         </ul>
       </section>
     </aside>

@@ -25,6 +25,29 @@ const roadStyle = {
   weight: 3
 };
 
+const selectedLocationStyle = {
+  bubblingMouseEvents: false,
+  color: "#071521",
+  fillColor: "#ffffff",
+  fillOpacity: 1,
+  radius: 7,
+  weight: 3
+};
+
+const nearestHospitalStyle = {
+  ...hospitalStyle,
+  color: "#071521",
+  radius: 11,
+  weight: 4
+};
+
+const nearestFireStationStyle = {
+  ...fireStationStyle,
+  color: "#071521",
+  radius: 11,
+  weight: 4
+};
+
 export function initializeMap(configuration, onLocationSelected) {
   if (!window.L) {
     throw new Error("Leaflet could not be loaded. Check the browser network connection.");
@@ -44,14 +67,16 @@ export function initializeMap(configuration, onLocationSelected) {
     pilotArea: window.L.layerGroup().addTo(map),
     hospitals: window.L.layerGroup().addTo(map),
     fireStations: window.L.layerGroup().addTo(map),
-    roads: window.L.layerGroup().addTo(map)
+    roads: window.L.layerGroup().addTo(map),
+    analysis: window.L.layerGroup().addTo(map)
   };
 
   window.L.control.layers(null, {
     "Pilot Area": layers.pilotArea,
     Hospitals: layers.hospitals,
     "Fire Stations": layers.fireStations,
-    "Main Roads": layers.roads
+    "Main Roads": layers.roads,
+    Analysis: layers.analysis
   }, {
     collapsed: window.matchMedia("(max-width: 780px)").matches,
     position: "topright"
@@ -59,9 +84,19 @@ export function initializeMap(configuration, onLocationSelected) {
 
   renderPilotArea(layers.pilotArea, configuration);
   setInitialView(map, configuration);
+  const state = {
+    dataBounds: window.L.latLngBounds([]),
+    layers,
+    map
+  };
+
   map.on("click", (event) => {
     const latitude = event.latlng.lat;
     const longitude = event.latlng.lng;
+    const location = { latitude, longitude };
+
+    clearAnalysis(state);
+    renderSelectedLocation(state, location);
 
     window.L.popup()
       .setLatLng(event.latlng)
@@ -71,14 +106,10 @@ export function initializeMap(configuration, onLocationSelected) {
         `<dt>Longitude</dt><dd>${longitude.toFixed(6)}</dd></dl></div>`)
       .openOn(map);
 
-    onLocationSelected({ latitude, longitude });
+    onLocationSelected(location);
   });
 
-  return {
-    dataBounds: window.L.latLngBounds([]),
-    layers,
-    map
-  };
+  return state;
 }
 
 export function renderHospitals(state, hospitals) {
@@ -130,6 +161,79 @@ export function fitMapToData(state) {
     maxZoom: 16,
     padding: [28, 28]
   });
+}
+
+export function clearAnalysis(state) {
+  state.layers.analysis.clearLayers();
+}
+
+export function renderNearestEmergencyServices(state, result) {
+  clearAnalysis(state);
+
+  const selectedLatLng = renderSelectedLocation(state, result?.selectedLocation);
+  if (!selectedLatLng) {
+    throw new Error("The analysis response contains an invalid selected location.");
+  }
+
+  renderNearestService(
+    state,
+    selectedLatLng,
+    result.nearestHospital,
+    nearestHospitalStyle,
+    hospitalStyle.fillColor,
+    "Nearest Hospital");
+  renderNearestService(
+    state,
+    selectedLatLng,
+    result.nearestFireStation,
+    nearestFireStationStyle,
+    fireStationStyle.fillColor,
+    "Nearest Fire Station");
+}
+
+function renderSelectedLocation(state, location) {
+  const latLng = toLeafletLatLng(location);
+  if (!latLng) {
+    return null;
+  }
+
+  window.L.circleMarker(latLng, selectedLocationStyle)
+    .bindTooltip("Selected location")
+    .addTo(state.layers.analysis);
+  return latLng;
+}
+
+function renderNearestService(
+  state,
+  selectedLatLng,
+  service,
+  markerStyle,
+  lineColor,
+  label) {
+  if (!service) {
+    return;
+  }
+
+  const serviceLatLng = toLeafletLatLng(service);
+  if (!serviceLatLng) {
+    console.warn(`${label} has invalid coordinates and was not rendered.`);
+    return;
+  }
+
+  window.L.polyline([selectedLatLng, serviceLatLng], {
+    bubblingMouseEvents: false,
+    color: lineColor,
+    dashArray: "7 7",
+    opacity: 0.88,
+    weight: 3
+  })
+    .bindTooltip(`${label} straight-line distance`)
+    .addTo(state.layers.analysis);
+
+  window.L.circleMarker(serviceLatLng, markerStyle)
+    .bindPopup(createAnalysisPopup(service, label))
+    .bindTooltip(label)
+    .addTo(state.layers.analysis);
 }
 
 function renderPointFeatures(state, features, layer, style, featureType) {
@@ -227,6 +331,26 @@ function createRoadPopup(road) {
     `<dt>Source</dt><dd>${escapeHtml(road.source || "Unknown")}</dd>` +
     `<dt>External ID</dt><dd>${escapeHtml(road.externalId || "—")}</dd></dl>` +
     `</div>`;
+}
+
+function createAnalysisPopup(service, label) {
+  return `<div class="feature-popup">` +
+    `<h3>${escapeHtml(label)}</h3>` +
+    `<dl><dt>Name</dt><dd>${escapeHtml(service.name || "Unnamed")}</dd>` +
+    `<dt>External ID</dt><dd>${escapeHtml(service.externalId || "—")}</dd>` +
+    `<dt>Distance</dt><dd>${formatDistance(service.distanceMeters)}</dd></dl>` +
+    `</div>`;
+}
+
+function formatDistance(distanceMeters) {
+  const distance = Number(distanceMeters);
+  if (!Number.isFinite(distance) || distance < 0) {
+    return "Unknown";
+  }
+
+  return distance < 1000
+    ? `${Math.round(distance)} m`
+    : `${(distance / 1000).toFixed(2)} km`;
 }
 
 function escapeHtml(value) {

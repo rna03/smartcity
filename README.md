@@ -128,6 +128,25 @@ GeoJSON serialization paketi eklenmedi. Mevcut DTO'lar point verileri için aç�
 Phase 3 bu sözleşmeyi korur. Böylece yalnızca harita göstermek amacıyla çalışan
 API yeniden tasarlanmaz veya yeni bir serialization bağımlılığı eklenmez.
 
+## Phase 4A: En yakın acil servis analizi
+
+Haritada bir nokta seçip **Find Nearest Emergency Services** düğmesine basıldığında
+frontend şu salt-okunur endpoint'i çağırır:
+
+```http
+GET /api/location-analysis/nearest?latitude=41.04&longitude=29.01
+```
+
+En yakın hastane ve itfaiye istasyonu, tablolar uygulama belleğine alınmadan
+PostgreSQL tarafında seçilir. PostGIS `ST_Distance(geometry::geography,
+point::geography)` hesabı WGS 84 koordinatlarından yaklaşık gerçek dünya mesafesini
+metre cinsinden döndürür. Response, seçilen koordinatı ve her iki tesis için kimlik,
+konum ve `distanceMeters` değerini içerir; ilgili tablo boşsa o sonuç `null` olur.
+
+Harita seçilen noktayı ve en yakın tesisleri vurgular. Aradaki kesik çizgiler yol
+rotası değildir; yalnızca straight-line/geodesic mesafe görselleştirmesidir.
+Latitude/longitude aralık dışı, eksik veya sonlu olmayan değerler HTTP 400 döndürür.
+
 ## Çalıştırma
 
 Gereksinimler: .NET 10 SDK ve Docker Desktop (Compose v2).
@@ -163,6 +182,7 @@ Invoke-RestMethod -Method Post http://localhost:5113/api/import/openstreetmap
 Invoke-RestMethod http://localhost:5113/api/hospitals
 Invoke-RestMethod http://localhost:5113/api/fire-stations
 Invoke-RestMethod http://localhost:5113/api/roads
+Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
 Invoke-WebRequest http://localhost:5113/health/live
 Invoke-WebRequest http://localhost:5113/health/ready
 ```

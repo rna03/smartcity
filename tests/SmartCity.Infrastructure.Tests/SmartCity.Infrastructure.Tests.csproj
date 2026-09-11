@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\backend\SmartCity.Api\SmartCity.Api.csproj" />
     <ProjectReference Include="..\..\backend\SmartCity.Infrastructure\SmartCity.Infrastructure.csproj" />
   </ItemGroup>
 

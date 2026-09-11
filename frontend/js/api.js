@@ -51,3 +51,12 @@ export function getFireStations() {
 export function getRoads() {
   return getJson("/api/roads");
 }
+
+export function getNearestEmergencyServices(latitude, longitude) {
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude)
+  });
+
+  return getJson(`/api/location-analysis/nearest?${query}`);
+}
