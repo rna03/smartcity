@@ -38,6 +38,7 @@ builder.Services
         "OpenStreetMap settings contain an invalid URL, timeout or response size limit.")
     .ValidateOnStart();
 builder.Services.AddScoped<IImportOpenStreetMapDataService, ImportOpenStreetMapDataService>();
+builder.Services.AddScoped<ICoverageAnalysisService, CoverageAnalysisService>();
 builder.Services.AddInfrastructure(connectionString);
 builder.Services
     .AddHealthChecks()

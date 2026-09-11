@@ -177,6 +177,28 @@ kısa olan servis. Uygun türde servis yoksa `recommendedService` kontrollü bi�
 yeniden kullanılır. Bu öneri ve gösterilen mesafe gerçek yol rotası, yolculuk
 süresi veya dispatch kararı değildir.
 
+## Phase 4C-1: Acil hizmet coverage analizi
+
+Coverage analizi, haritada seçilen nokta için Phase 4A'nın en yakın hastane ve
+itfaiye mesafelerini yeniden kullanarak hizmet erişimini sınıflandırır:
+
+- `Good`: mesafe 2.000 metre veya daha az.
+- `Moderate`: 2.000 metreden fazla, 5.000 metre veya daha az.
+- `Poor`: 5.000 metreden fazla.
+- `Unavailable`: ilgili hizmet kaydı bulunamadı.
+
+Overall sonuçta herhangi bir hizmet `Unavailable` ise `Unavailable`, aksi halde
+en düşük coverage seviyesi kullanılır. Endpoint örneği:
+
+```http
+GET /api/location-analysis/coverage?latitude=41.04&longitude=29.01
+```
+
+Frontend'de bir nokta seçildikten sonra **Analyze Coverage** düğmesi hastane,
+itfaiye ve overall sonuçlarını renkli durum rozetleriyle gösterir. Hesaplama
+PostGIS geography tabanlı straight-line/geodesic metre mesafesine dayanır; yol
+rotası, yolculuk süresi veya gerçek operasyonel erişim süresi değildir.
+
 ## Çalıştırma
 
 Gereksinimler: .NET 10 SDK ve Docker Desktop (Compose v2).
@@ -213,6 +235,7 @@ Invoke-RestMethod http://localhost:5113/api/hospitals
 Invoke-RestMethod http://localhost:5113/api/fire-stations
 Invoke-RestMethod http://localhost:5113/api/roads
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
+Invoke-RestMethod "http://localhost:5113/api/location-analysis/coverage?latitude=41.04&longitude=29.01"
 Invoke-RestMethod http://localhost:5113/api/incidents
 Invoke-RestMethod -Method Post http://localhost:5113/api/incidents `
   -ContentType "application/json" `

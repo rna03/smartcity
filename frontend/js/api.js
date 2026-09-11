@@ -16,19 +16,26 @@ async function requestJson(path, options = {}) {
 
     if (!response.ok) {
       const detail = await readProblemDetail(response);
-      throw new Error(detail || `Request failed with HTTP ${response.status}.`);
+      throw createRequestError("requestFailed", {
+        detail,
+        status: response.status
+      });
     }
 
     return await response.json();
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(`The request to ${path} timed out.`);
+      throw createRequestError("requestTimedOut", { path });
     }
 
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
   }
+}
+
+function createRequestError(code, details) {
+  return Object.assign(new Error(code), { code, ...details });
 }
 
 function getJson(path) {
@@ -67,6 +74,15 @@ export function getNearestEmergencyServices(latitude, longitude) {
   });
 
   return getJson(`/api/location-analysis/nearest?${query}`);
+}
+
+export function getCoverageAnalysis(latitude, longitude) {
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude)
+  });
+
+  return getJson(`/api/location-analysis/coverage?${query}`);
 }
 
 export function getIncidents() {

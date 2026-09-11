@@ -7,7 +7,8 @@ namespace SmartCity.Api.Controllers;
 [ApiController]
 [Route("api/location-analysis")]
 public sealed class LocationAnalysisController(
-    ILocationAnalysisService locationAnalysisService)
+    ILocationAnalysisService locationAnalysisService,
+    ICoverageAnalysisService coverageAnalysisService)
     : ControllerBase
 {
     [HttpGet("nearest")]
@@ -21,13 +22,7 @@ public sealed class LocationAnalysisController(
     {
         if (!LocationCoordinateValidation.IsValid(latitude, longitude))
         {
-            return BadRequest(new ProblemDetails
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = "Invalid coordinates",
-                Detail = "Latitude must be between -90 and 90 and longitude " +
-                         "must be between -180 and 180. Both values must be finite."
-            });
+            return BadRequest(CreateInvalidCoordinatesProblem());
         }
 
         var result = await locationAnalysisService.FindNearestAsync(
@@ -37,4 +32,33 @@ public sealed class LocationAnalysisController(
         return Ok(result);
     }
 
+    [HttpGet("coverage")]
+    [ProducesResponseType<CoverageAnalysisResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<CoverageAnalysisResult>> GetCoverage(
+        [FromQuery] double? latitude,
+        [FromQuery] double? longitude,
+        CancellationToken cancellationToken)
+    {
+        if (!LocationCoordinateValidation.IsValid(latitude, longitude))
+        {
+            return BadRequest(CreateInvalidCoordinatesProblem());
+        }
+
+        var result = await coverageAnalysisService.AnalyzeAsync(
+            latitude!.Value,
+            longitude!.Value,
+            cancellationToken);
+        return Ok(result);
+    }
+
+    private static ProblemDetails CreateInvalidCoordinatesProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Invalid coordinates",
+            Detail = "Latitude must be between -90 and 90 and longitude " +
+                     "must be between -180 and 180. Both values must be finite."
+        };
 }

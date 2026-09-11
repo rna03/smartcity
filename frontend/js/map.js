@@ -1,4 +1,5 @@
 import { toLeafletLatLng, toLeafletLine } from "./geo.js";
+import { getLocale, t } from "./i18n.js";
 
 const hospitalStyle = {
   bubblingMouseEvents: false,
@@ -57,12 +58,12 @@ const incidentStyles = Object.freeze({
 
 export function initializeMap(configuration, onLocationSelected) {
   if (!window.L) {
-    throw new Error("Leaflet could not be loaded. Check the browser network connection.");
+    throw new Error(t("leafletLoadError"));
   }
 
   const map = window.L.map("map", {
     preferCanvas: true,
-    zoomControl: true
+    zoomControl: false
   });
 
   window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -79,25 +80,18 @@ export function initializeMap(configuration, onLocationSelected) {
     analysis: window.L.layerGroup().addTo(map)
   };
 
-  window.L.control.layers(null, {
-    "Pilot Area": layers.pilotArea,
-    Hospitals: layers.hospitals,
-    "Fire Stations": layers.fireStations,
-    "Main Roads": layers.roads,
-    Incidents: layers.incidents,
-    Analysis: layers.analysis
-  }, {
-    collapsed: window.matchMedia("(max-width: 780px)").matches,
-    position: "topright"
-  }).addTo(map);
+  const state = {
+    dataBounds: window.L.latLngBounds([]),
+    layerControl: null,
+    layers,
+    map,
+    zoomControl: null
+  };
+  state.layerControl = createLayerControl(state);
+  state.zoomControl = createZoomControl(state.map);
 
   renderPilotArea(layers.pilotArea, configuration);
   setInitialView(map, configuration);
-  const state = {
-    dataBounds: window.L.latLngBounds([]),
-    layers,
-    map
-  };
 
   map.on("click", (event) => {
     const latitude = event.latlng.lat;
@@ -109,16 +103,53 @@ export function initializeMap(configuration, onLocationSelected) {
 
     window.L.popup()
       .setLatLng(event.latlng)
-      .setContent(
-        `<div class="feature-popup"><h3>Selected Location</h3>` +
-        `<dl><dt>Latitude</dt><dd>${latitude.toFixed(6)}</dd>` +
-        `<dt>Longitude</dt><dd>${longitude.toFixed(6)}</dd></dl></div>`)
+      .setContent(createSelectedLocationPopup(latitude, longitude))
       .openOn(map);
 
     onLocationSelected(location);
   });
 
   return state;
+}
+
+export function refreshMapTranslations(state) {
+  if (!state?.map || !state.layers) {
+    return;
+  }
+
+  if (state.layerControl) {
+    state.map.removeControl(state.layerControl);
+  }
+
+  if (state.zoomControl) {
+    state.map.removeControl(state.zoomControl);
+  }
+
+  state.layerControl = createLayerControl(state);
+  state.zoomControl = createZoomControl(state.map);
+  state.map.closePopup();
+}
+
+function createZoomControl(map) {
+  return window.L.control.zoom({
+    position: "topleft",
+    zoomInTitle: t("zoomIn"),
+    zoomOutTitle: t("zoomOut")
+  }).addTo(map);
+}
+
+function createLayerControl(state) {
+  return window.L.control.layers(null, {
+    [t("pilotAreaLayer")]: state.layers.pilotArea,
+    [t("hospitals")]: state.layers.hospitals,
+    [t("fireStations")]: state.layers.fireStations,
+    [t("mainRoads")]: state.layers.roads,
+    [t("incidents")]: state.layers.incidents,
+    [t("analysis")]: state.layers.analysis
+  }, {
+    collapsed: window.matchMedia("(max-width: 780px)").matches,
+    position: "topright"
+  }).addTo(state.map);
 }
 
 export function renderHospitals(state, hospitals) {
@@ -136,7 +167,7 @@ export function renderFireStations(state, fireStations) {
     fireStations,
     state.layers.fireStations,
     fireStationStyle,
-    "fire station");
+    "fireStation");
 }
 
 export function renderRoads(state, roads) {
@@ -151,7 +182,7 @@ export function renderRoads(state, roads) {
     }
 
     const line = window.L.polyline(latLngs, roadStyle)
-      .bindPopup(createRoadPopup(road));
+      .bindPopup(() => createRoadPopup(road));
     line.addTo(state.layers.roads);
     state.dataBounds.extend(line.getBounds());
     renderedCount += 1;
@@ -193,8 +224,10 @@ export function renderIncident(state, incident, recommendation = null) {
     radius: 9,
     weight: 3
   })
-    .bindPopup(createIncidentPopup(incident, recommendation))
-    .bindTooltip(`${formatIncidentType(incident.type)} incident`)
+    .bindPopup(() => createIncidentPopup(incident, recommendation))
+    .bindTooltip(() => t("incidentPopupTitle", {
+      type: formatIncidentType(incident.type)
+    }))
     .addTo(state.layers.incidents);
 
   state.dataBounds.extend(latLng);
@@ -221,7 +254,7 @@ export function renderNearestEmergencyServices(state, result) {
 
   const selectedLatLng = renderSelectedLocation(state, result?.selectedLocation);
   if (!selectedLatLng) {
-    throw new Error("The analysis response contains an invalid selected location.");
+    throw new Error(t("invalidAnalysisLocation"));
   }
 
   renderNearestService(
@@ -230,14 +263,14 @@ export function renderNearestEmergencyServices(state, result) {
     result.nearestHospital,
     nearestHospitalStyle,
     hospitalStyle.fillColor,
-    "Nearest Hospital");
+    "nearestHospital");
   renderNearestService(
     state,
     selectedLatLng,
     result.nearestFireStation,
     nearestFireStationStyle,
     fireStationStyle.fillColor,
-    "Nearest Fire Station");
+    "nearestFireStation");
 }
 
 function renderSelectedLocation(state, location) {
@@ -247,7 +280,7 @@ function renderSelectedLocation(state, location) {
   }
 
   window.L.circleMarker(latLng, selectedLocationStyle)
-    .bindTooltip("Selected location")
+    .bindTooltip(() => t("selectedLocationTooltip"))
     .addTo(state.layers.analysis);
   return latLng;
 }
@@ -258,14 +291,14 @@ function renderNearestService(
   service,
   markerStyle,
   lineColor,
-  label) {
+  labelKey) {
   if (!service) {
     return;
   }
 
   const serviceLatLng = toLeafletLatLng(service);
   if (!serviceLatLng) {
-    console.warn(`${label} has invalid coordinates and was not rendered.`);
+    console.warn(`${labelKey} has invalid coordinates and was not rendered.`);
     return;
   }
 
@@ -276,12 +309,12 @@ function renderNearestService(
     opacity: 0.88,
     weight: 3
   })
-    .bindTooltip(`${label} straight-line distance`)
+    .bindTooltip(() => t("straightLineDistance", { service: t(labelKey) }))
     .addTo(state.layers.analysis);
 
   window.L.circleMarker(serviceLatLng, markerStyle)
-    .bindPopup(createAnalysisPopup(service, label))
-    .bindTooltip(label)
+    .bindPopup(() => createAnalysisPopup(service, labelKey))
+    .bindTooltip(() => t(labelKey))
     .addTo(state.layers.analysis);
 }
 
@@ -297,7 +330,7 @@ function renderPointFeatures(state, features, layer, style, featureType) {
     }
 
     window.L.circleMarker(latLng, style)
-      .bindPopup(createPointPopup(feature, featureType))
+      .bindPopup(() => createPointPopup(feature, featureType))
       .addTo(layer);
     state.dataBounds.extend(latLng);
     renderedCount += 1;
@@ -337,10 +370,10 @@ function renderPilotArea(layer, configuration) {
   });
 
   rectangle
-    .bindPopup(
+    .bindPopup(() =>
       `<div class="feature-popup"><h3>${escapeHtml(configuration.pilotArea)}</h3>` +
-      `<dl><dt>South / West</dt><dd>${bounds[0][0].toFixed(5)}, ${bounds[0][1].toFixed(5)}</dd>` +
-      `<dt>North / East</dt><dd>${bounds[1][0].toFixed(5)}, ${bounds[1][1].toFixed(5)}</dd></dl></div>`)
+      `<dl><dt>${t("southWest")}</dt><dd>${bounds[0][0].toFixed(5)}, ${bounds[0][1].toFixed(5)}</dd>` +
+      `<dt>${t("northEast")}</dt><dd>${bounds[1][0].toFixed(5)}, ${bounds[1][1].toFixed(5)}</dd></dl></div>`)
     .addTo(layer);
 }
 
@@ -364,69 +397,83 @@ function getPilotAreaBounds(configuration) {
 }
 
 function createPointPopup(feature, featureType) {
+  const unnamedKey = featureType === "hospital"
+    ? "unnamedHospital"
+    : "unnamedFireStation";
   return `<div class="feature-popup">` +
-    `<h3>${escapeHtml(feature.name || `Unnamed ${featureType}`)}</h3>` +
-    `<dl><dt>Source</dt><dd>${escapeHtml(feature.source || "Unknown")}</dd>` +
-    `<dt>External ID</dt><dd>${escapeHtml(feature.externalId || "—")}</dd>` +
-    `<dt>Latitude</dt><dd>${Number(feature.latitude).toFixed(6)}</dd>` +
-    `<dt>Longitude</dt><dd>${Number(feature.longitude).toFixed(6)}</dd></dl>` +
+    `<h3>${escapeHtml(feature.name || t(unnamedKey))}</h3>` +
+    `<dl><dt>${t("source")}</dt><dd>${escapeHtml(feature.source || t("unknown"))}</dd>` +
+    `<dt>${t("externalId")}</dt><dd>${escapeHtml(feature.externalId || "—")}</dd>` +
+    `<dt>${t("latitude")}</dt><dd>${Number(feature.latitude).toFixed(6)}</dd>` +
+    `<dt>${t("longitude")}</dt><dd>${Number(feature.longitude).toFixed(6)}</dd></dl>` +
     `</div>`;
 }
 
 function createRoadPopup(road) {
   return `<div class="feature-popup">` +
-    `<h3>${escapeHtml(road.name || "Unnamed road")}</h3>` +
-    `<dl><dt>Road type</dt><dd>${escapeHtml(road.roadType || "Unknown")}</dd>` +
-    `<dt>Source</dt><dd>${escapeHtml(road.source || "Unknown")}</dd>` +
-    `<dt>External ID</dt><dd>${escapeHtml(road.externalId || "—")}</dd></dl>` +
+    `<h3>${escapeHtml(road.name || t("unnamedRoad"))}</h3>` +
+    `<dl><dt>${t("roadType")}</dt><dd>${escapeHtml(road.roadType || t("unknown"))}</dd>` +
+    `<dt>${t("source")}</dt><dd>${escapeHtml(road.source || t("unknown"))}</dd>` +
+    `<dt>${t("externalId")}</dt><dd>${escapeHtml(road.externalId || "—")}</dd></dl>` +
     `</div>`;
 }
 
-function createAnalysisPopup(service, label) {
+function createAnalysisPopup(service, labelKey) {
   return `<div class="feature-popup">` +
-    `<h3>${escapeHtml(label)}</h3>` +
-    `<dl><dt>Name</dt><dd>${escapeHtml(service.name || "Unnamed")}</dd>` +
-    `<dt>External ID</dt><dd>${escapeHtml(service.externalId || "—")}</dd>` +
-    `<dt>Distance</dt><dd>${formatDistance(service.distanceMeters)}</dd></dl>` +
+    `<h3>${escapeHtml(t(labelKey))}</h3>` +
+    `<dl><dt>${t("name")}</dt><dd>${escapeHtml(service.name || t("unnamed"))}</dd>` +
+    `<dt>${t("externalId")}</dt><dd>${escapeHtml(service.externalId || "—")}</dd>` +
+    `<dt>${t("distance")}</dt><dd>${formatDistance(service.distanceMeters)}</dd></dl>` +
     `</div>`;
 }
 
 function createIncidentPopup(incident, recommendation) {
   const description = incident.description
-    ? `<dt>Description</dt><dd>${escapeHtml(incident.description)}</dd>`
+    ? `<dt>${t("description")}</dt><dd>${escapeHtml(incident.description)}</dd>`
     : "";
   const recommendedService = recommendation
-    ? `<dt>Recommended</dt><dd>${escapeHtml(recommendation.name || "Unnamed service")}</dd>` +
-      `<dt>Distance</dt><dd>${formatDistance(recommendation.distanceMeters)}</dd>`
-    : `<dt>Recommended</dt><dd>No matching service available</dd>`;
+    ? `<dt>${t("recommended")}</dt><dd>${escapeHtml(recommendation.name || t("unnamedService"))}</dd>` +
+      `<dt>${t("distance")}</dt><dd>${formatDistance(recommendation.distanceMeters)}</dd>`
+    : `<dt>${t("recommended")}</dt><dd>${t("noMatchingServiceShort")}</dd>`;
 
   return `<div class="feature-popup">` +
-    `<h3>${escapeHtml(formatIncidentType(incident.type))} Incident</h3>` +
-    `<dl><dt>Created</dt><dd>${escapeHtml(formatDate(incident.createdAtUtc))}</dd>` +
+    `<h3>${escapeHtml(t("incidentPopupTitle", { type: formatIncidentType(incident.type) }))}</h3>` +
+    `<dl><dt>${t("created")}</dt><dd>${escapeHtml(formatDate(incident.createdAtUtc))}</dd>` +
     description +
     recommendedService +
     `</dl></div>`;
 }
 
 function formatIncidentType(value) {
-  const type = String(value || "Other");
-  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  const normalized = String(value || "Other").toLowerCase();
+  return ["fire", "medical", "accident", "other"].includes(normalized)
+    ? t(normalized)
+    : String(value);
 }
 
 function formatDate(value) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? t("unknown") : date.toLocaleString(getLocale());
 }
 
 function formatDistance(distanceMeters) {
   const distance = Number(distanceMeters);
   if (!Number.isFinite(distance) || distance < 0) {
-    return "Unknown";
+    return t("unknown");
   }
 
   return distance < 1000
-    ? `${Math.round(distance)} m`
-    : `${(distance / 1000).toFixed(2)} km`;
+    ? `${new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 0 }).format(distance)} m`
+    : `${new Intl.NumberFormat(getLocale(), {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2
+    }).format(distance / 1000)} km`;
+}
+
+function createSelectedLocationPopup(latitude, longitude) {
+  return `<div class="feature-popup"><h3>${t("selectedLocation")}</h3>` +
+    `<dl><dt>${t("latitude")}</dt><dd>${latitude.toFixed(6)}</dd>` +
+    `<dt>${t("longitude")}</dt><dd>${longitude.toFixed(6)}</dd></dl></div>`;
 }
 
 function escapeHtml(value) {

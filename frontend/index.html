@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Interactive emergency service map for SmartCity Location Intelligence.">
-  <title>SmartCity Location Intelligence</title>
+  <meta name="description" content="Interactive emergency service map for SmartCity Location Intelligence."
+    data-i18n-content="pageDescription">
+  <title data-i18n="appTitle">SmartCity Location Intelligence</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -13,96 +14,130 @@
 <body>
   <header class="site-header">
     <div>
-      <p class="eyebrow">Geospatial Operations Dashboard</p>
-      <h1>SmartCity Location Intelligence</h1>
-      <p class="subtitle">Emergency Service Location Analysis</p>
+      <p class="eyebrow" data-i18n="dashboardEyebrow">Geospatial Operations Dashboard</p>
+      <h1 data-i18n="appTitle">SmartCity Location Intelligence</h1>
+      <p class="subtitle" data-i18n="appSubtitle">Emergency Service Location Analysis</p>
     </div>
-    <div class="source-badge" aria-label="Map data source">
-      <span class="source-badge__dot" aria-hidden="true"></span>
-      OpenStreetMap data
+    <div class="header-tools">
+      <label class="language-control" for="language-selector">
+        <span data-i18n="language">Language</span>
+        <select id="language-selector" name="language" data-i18n-aria-label="language">
+          <option value="en" data-i18n="english">English</option>
+          <option value="tr" data-i18n="turkish">Türkçe</option>
+        </select>
+      </label>
+      <div class="source-badge" aria-label="Map data source" data-i18n-aria-label="mapDataSource">
+        <span class="source-badge__dot" aria-hidden="true"></span>
+        <span data-i18n="mapDataSource">OpenStreetMap data</span>
+      </div>
     </div>
   </header>
 
   <main class="dashboard">
-    <aside class="info-panel" aria-label="Map information">
+    <aside class="info-panel" aria-label="Map information" data-i18n-aria-label="mapInformation">
       <section class="panel-card">
-        <p class="panel-card__label">Pilot area</p>
-        <h2 id="pilot-area">Loading configuration...</h2>
-        <p class="muted">Current records available through the SmartCity API.</p>
+        <p class="panel-card__label" data-i18n="pilotArea">Pilot area</p>
+        <h2 id="pilot-area" data-i18n="loadingConfiguration">Loading configuration...</h2>
+        <p class="muted" data-i18n="currentRecords">Current records available through the SmartCity API.</p>
 
         <dl class="metric-list">
           <div class="metric metric--hospital">
-            <dt>Hospitals</dt>
+            <dt data-i18n="hospitals">Hospitals</dt>
             <dd id="hospital-count">0</dd>
           </div>
           <div class="metric metric--fire">
-            <dt>Fire Stations</dt>
+            <dt data-i18n="fireStations">Fire Stations</dt>
             <dd id="fire-station-count">0</dd>
           </div>
           <div class="metric metric--road">
-            <dt>Roads</dt>
+            <dt data-i18n="roads">Roads</dt>
             <dd id="road-count">0</dd>
           </div>
           <div class="metric metric--incident">
-            <dt>Incidents</dt>
+            <dt data-i18n="incidents">Incidents</dt>
             <dd id="incident-count">0</dd>
           </div>
         </dl>
       </section>
 
       <section class="panel-card selected-location" aria-labelledby="selected-location-title">
-        <p class="panel-card__label">Map selection</p>
-        <h2 id="selected-location-title">Selected Location</h2>
-        <p id="selected-location-help" class="muted">Click an empty point on the map to inspect its coordinates.</p>
+        <p class="panel-card__label" data-i18n="mapSelection">Map selection</p>
+        <h2 id="selected-location-title" data-i18n="selectedLocation">Selected Location</h2>
+        <p id="selected-location-help" class="muted" data-i18n="selectPointHelp">Click an empty point on the map to inspect its coordinates.</p>
         <dl id="selected-coordinates" class="coordinate-list" hidden>
           <div>
-            <dt>Latitude</dt>
+            <dt data-i18n="latitude">Latitude</dt>
             <dd id="selected-latitude">—</dd>
           </div>
           <div>
-            <dt>Longitude</dt>
+            <dt data-i18n="longitude">Longitude</dt>
             <dd id="selected-longitude">—</dd>
           </div>
         </dl>
 
-        <button id="find-nearest-services" class="analysis-button" type="button" disabled>
+        <button id="find-nearest-services" class="analysis-button" type="button" disabled
+          data-i18n="findNearestServices">
           Find Nearest Emergency Services
         </button>
         <p id="analysis-status" class="analysis-status" role="status" aria-live="polite" hidden></p>
         <div id="analysis-results" class="analysis-results" aria-live="polite" hidden>
           <article class="analysis-result analysis-result--hospital">
-            <h3>Nearest Hospital</h3>
+            <h3 data-i18n="nearestHospital">Nearest Hospital</h3>
             <p id="nearest-hospital-name">—</p>
             <strong id="nearest-hospital-distance">—</strong>
           </article>
           <article class="analysis-result analysis-result--fire">
-            <h3>Nearest Fire Station</h3>
+            <h3 data-i18n="nearestFireStation">Nearest Fire Station</h3>
             <p id="nearest-fire-station-name">—</p>
             <strong id="nearest-fire-station-distance">—</strong>
           </article>
-          <p class="analysis-note">Dashed lines visualize straight-line geodesic distance, not road routes.</p>
+          <p class="analysis-note" data-i18n="nearestAnalysisNote">Dashed lines visualize straight-line geodesic distance, not road routes.</p>
+        </div>
+
+        <button id="analyze-coverage" class="coverage-button" type="button" disabled
+          data-i18n="analyzeCoverage">
+          Analyze Coverage
+        </button>
+        <p id="coverage-status" class="coverage-status" role="status" aria-live="polite" hidden></p>
+        <div id="coverage-results" class="coverage-results" aria-live="polite" hidden>
+          <div class="coverage-row">
+            <span data-i18n="hospitalCoverage">Hospital Coverage</span>
+            <strong id="hospital-coverage-level" class="coverage-badge">—</strong>
+            <small id="hospital-coverage-distance">—</small>
+          </div>
+          <div class="coverage-row">
+            <span data-i18n="fireStationCoverage">Fire Station Coverage</span>
+            <strong id="fire-coverage-level" class="coverage-badge">—</strong>
+            <small id="fire-coverage-distance">—</small>
+          </div>
+          <div class="coverage-row coverage-row--overall">
+            <span data-i18n="overallCoverage">Overall Coverage</span>
+            <strong id="overall-coverage-level" class="coverage-badge">—</strong>
+          </div>
+          <p class="analysis-note" data-i18n="coverageNote">Coverage uses straight-line geodesic distance, not travel time.</p>
         </div>
       </section>
 
       <section class="panel-card incident-card" aria-labelledby="incident-title">
-        <p class="panel-card__label">Emergency report</p>
-        <h2 id="incident-title">Create Incident</h2>
-        <p class="muted">Select a map location, then describe the incident.</p>
+        <p class="panel-card__label" data-i18n="emergencyReport">Emergency report</p>
+        <h2 id="incident-title" data-i18n="createIncident">Create Incident</h2>
+        <p class="muted" data-i18n="selectIncidentHelp">Select a map location, then describe the incident.</p>
 
         <form id="incident-form" class="incident-form">
-          <label for="incident-type">Incident Type</label>
+          <label for="incident-type" data-i18n="incidentType">Incident Type</label>
           <select id="incident-type" name="type">
-            <option value="Fire">Fire</option>
-            <option value="Medical">Medical</option>
-            <option value="Accident">Accident</option>
-            <option value="Other">Other</option>
+            <option value="Fire" data-i18n="fire">Fire</option>
+            <option value="Medical" data-i18n="medical">Medical</option>
+            <option value="Accident" data-i18n="accident">Accident</option>
+            <option value="Other" data-i18n="other">Other</option>
           </select>
 
-          <label for="incident-description">Description <span>(optional)</span></label>
+          <label for="incident-description"><span class="incident-form__label" data-i18n="description">Description</span> <span data-i18n="optional">(optional)</span></label>
           <textarea id="incident-description" name="description" maxlength="500" rows="3"
-            placeholder="Briefly describe the incident"></textarea>
+            placeholder="Briefly describe the incident" data-i18n-placeholder="incidentDescriptionPlaceholder"></textarea>
 
-          <button id="create-incident" class="incident-button" type="submit" disabled>
+          <button id="create-incident" class="incident-button" type="submit" disabled
+            data-i18n="createIncident">
             Create Incident
           </button>
         </form>
@@ -114,36 +149,37 @@
         </div>
       </section>
 
-      <section class="legend" aria-label="Map legend">
-        <h2>Map layers</h2>
+      <section class="legend" aria-label="Map legend" data-i18n-aria-label="mapLegend">
+        <h2 data-i18n="mapLayers">Map layers</h2>
         <ul>
-          <li><span class="legend-area" aria-hidden="true"></span>Pilot Area</li>
-          <li><span class="legend-symbol legend-symbol--hospital" aria-hidden="true"></span>Hospitals</li>
-          <li><span class="legend-symbol legend-symbol--fire" aria-hidden="true"></span>Fire Stations</li>
-          <li><span class="legend-line" aria-hidden="true"></span>Main Roads</li>
-          <li><span class="legend-analysis" aria-hidden="true"></span>Nearest-service analysis</li>
-          <li><span class="legend-symbol legend-symbol--incident" aria-hidden="true"></span>Incidents</li>
+          <li><span class="legend-area" aria-hidden="true"></span><span data-i18n="pilotAreaLayer">Pilot Area</span></li>
+          <li><span class="legend-symbol legend-symbol--hospital" aria-hidden="true"></span><span data-i18n="hospitals">Hospitals</span></li>
+          <li><span class="legend-symbol legend-symbol--fire" aria-hidden="true"></span><span data-i18n="fireStations">Fire Stations</span></li>
+          <li><span class="legend-line" aria-hidden="true"></span><span data-i18n="mainRoads">Main Roads</span></li>
+          <li><span class="legend-analysis" aria-hidden="true"></span><span data-i18n="nearestServiceAnalysis">Nearest-service analysis</span></li>
+          <li><span class="legend-symbol legend-symbol--incident" aria-hidden="true"></span><span data-i18n="incidents">Incidents</span></li>
         </ul>
       </section>
     </aside>
 
-    <section class="map-panel" aria-label="Interactive city map">
+    <section class="map-panel" aria-label="Interactive city map" data-i18n-aria-label="interactiveCityMap">
       <div id="error-panel" class="error-panel" role="alert" hidden>
-        <strong>Data could not be loaded.</strong>
-        <span id="error-message">Check that the API and database are running.</span>
+        <strong data-i18n="dataCouldNotBeLoaded">Data could not be loaded.</strong>
+        <span id="error-message" data-i18n="apiDatabaseCheck">Check that the API and database are running.</span>
       </div>
 
       <div class="map-shell">
-        <div id="map" role="application" aria-label="Interactive map showing hospitals, fire stations and main roads"></div>
+        <div id="map" role="application" aria-label="Interactive map showing hospitals, fire stations and main roads"
+          data-i18n-aria-label="interactiveMapDescription"></div>
         <div id="loading-indicator" class="loading-indicator" role="status" aria-live="polite">
           <span class="spinner" aria-hidden="true"></span>
-          <span>Map data is loading...</span>
+          <span data-i18n="mapDataLoading">Map data is loading...</span>
         </div>
       </div>
     </section>
   </main>
 
-  <footer>
+  <footer data-i18n="footerAttribution">
     Map tiles © OpenStreetMap contributors · Operational data served by SmartCity API
   </footer>
 

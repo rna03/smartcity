@@ -32,6 +32,11 @@ GET {{SmartCity.Api_HostAddress}}/api/location-analysis/nearest?latitude=41.04&l
 Accept: application/json
 
 ###
+### Emergency service coverage (Phase 4C-1)
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/coverage?latitude=41.04&longitude=29.01
+Accept: application/json
+
+###
 ### List incidents (Phase 4B)
 GET {{SmartCity.Api_HostAddress}}/api/incidents
 Accept: application/json
