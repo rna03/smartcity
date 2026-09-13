@@ -2,6 +2,7 @@ import {
   createIncident,
   getAccessibilityAnalysis,
   getCoverageAnalysis,
+  getDashboardSummary,
   getFireStations,
   getHospitals,
   getIncidents,
@@ -45,16 +46,20 @@ const uiState = {
   accessibility: { error: null, isLoading: false, result: null },
   analysis: { error: null, isLoading: false, result: null },
   coverage: { error: null, isLoading: false, result: null },
+  dashboard: { error: null, isLoading: false, result: null },
   incident: { error: null, isLoading: false, result: null },
   mapState: null,
   startupErrors: []
 };
+
+let dashboardRequestVersion = 0;
 
 document.addEventListener("DOMContentLoaded", startApplication);
 
 async function startApplication() {
   applyTranslations();
   configureLanguageSelector();
+  void loadDashboardSummary();
   const loadingIndicator = document.querySelector("#loading-indicator");
   const errors = uiState.startupErrors;
   let selectedLocation = null;
@@ -141,6 +146,8 @@ async function startApplication() {
           incidentCount += 1;
           setMetricCount("#incident-count", incidentCount);
         }
+
+        void loadDashboardSummary();
       });
   } catch (error) {
     errors.push({ error });
@@ -160,11 +167,180 @@ function configureLanguageSelector() {
 function refreshLocalizedUi() {
   refreshMapTranslations(uiState.mapState);
   refreshMetricCounts();
+  refreshDashboardUi();
   refreshAnalysisUi();
   refreshCoverageUi();
   refreshAccessibilityUi();
   refreshIncidentUi();
   showErrors(uiState.startupErrors);
+}
+
+async function loadDashboardSummary() {
+  const requestVersion = ++dashboardRequestVersion;
+  setDashboardLoading(true);
+
+  try {
+    const result = await getDashboardSummary();
+    if (requestVersion === dashboardRequestVersion) {
+      showDashboardSummary(result);
+    }
+  } catch (error) {
+    if (requestVersion === dashboardRequestVersion) {
+      showDashboardFailure(error);
+    }
+  } finally {
+    if (requestVersion === dashboardRequestVersion) {
+      uiState.dashboard.isLoading = false;
+    }
+  }
+}
+
+function refreshDashboardUi() {
+  if (uiState.dashboard.result) {
+    renderDashboardSummary(uiState.dashboard.result);
+  }
+
+  if (uiState.dashboard.isLoading) {
+    showStatus("#dashboard-status", "loadingDashboard", "dashboard-status--error");
+  } else if (uiState.dashboard.error) {
+    showDashboardFailure(uiState.dashboard.error);
+  }
+}
+
+function setDashboardLoading(isLoading) {
+  uiState.dashboard.isLoading = isLoading;
+  if (isLoading) {
+    uiState.dashboard.error = null;
+    showStatus("#dashboard-status", "loadingDashboard", "dashboard-status--error");
+  }
+}
+
+function showDashboardSummary(result) {
+  uiState.dashboard.error = null;
+  uiState.dashboard.result = result;
+  renderDashboardSummary(result);
+  document.querySelector("#dashboard-status").hidden = true;
+}
+
+function renderDashboardSummary(result) {
+  const counts = {
+    fire: normalizeCount(result?.incidentCounts?.fire),
+    medical: normalizeCount(result?.incidentCounts?.medical),
+    accident: normalizeCount(result?.incidentCounts?.accident),
+    other: normalizeCount(result?.incidentCounts?.other)
+  };
+  const totalIncidents = normalizeCount(result?.totalIncidents);
+
+  setMetricCount("#dashboard-total-incidents", totalIncidents);
+  setMetricCount("#dashboard-fire-incidents", counts.fire);
+  setMetricCount("#dashboard-medical-incidents", counts.medical);
+  setMetricCount("#dashboard-accident-incidents", counts.accident);
+  setMetricCount("#dashboard-other-incidents", counts.other);
+  renderLatestIncidents(result?.latestIncidents);
+  renderIncidentDistribution(counts, totalIncidents);
+}
+
+function renderLatestIncidents(latestIncidents) {
+  const list = document.querySelector("#latest-incidents-list");
+  const emptyMessage = document.querySelector("#no-incidents-message");
+  const incidents = Array.isArray(latestIncidents)
+    ? latestIncidents.slice(0, 5)
+    : [];
+
+  list.replaceChildren();
+  list.hidden = incidents.length === 0;
+  emptyMessage.hidden = incidents.length !== 0;
+
+  const fragment = document.createDocumentFragment();
+  incidents.forEach((incident) => fragment.append(createLatestIncidentItem(incident)));
+  list.append(fragment);
+}
+
+function createLatestIncidentItem(incident) {
+  const incidentType = normalizeIncidentType(incident?.type);
+  const item = document.createElement("li");
+  item.className =
+    `latest-incidents__item latest-incidents__item--${incidentType}`;
+
+  const headline = document.createElement("div");
+  headline.className = "latest-incidents__headline";
+  const identity = document.createElement("strong");
+  const id = Number(incident?.id);
+  identity.textContent = `#${Number.isInteger(id) && id > 0 ? id : "—"} ` +
+    translateIncidentType(incident?.type);
+  const time = document.createElement("time");
+  time.dateTime = String(incident?.createdAtUtc || "");
+  time.textContent = formatDashboardDate(incident?.createdAtUtc);
+  headline.append(identity, time);
+  item.append(headline);
+
+  const description = typeof incident?.description === "string"
+    ? incident.description.trim()
+    : "";
+  if (description) {
+    const descriptionElement = document.createElement("p");
+    descriptionElement.className = "latest-incidents__description";
+    descriptionElement.textContent = shortenDescription(description);
+    descriptionElement.title = description;
+    item.append(descriptionElement);
+  }
+
+  return item;
+}
+
+function renderIncidentDistribution(counts, totalIncidents) {
+  const entries = [
+    ["fire", counts.fire],
+    ["medical", counts.medical],
+    ["accident", counts.accident],
+    ["other", counts.other]
+  ];
+
+  entries.forEach(([incidentType, count]) => {
+    setMetricCount(`#distribution-${incidentType}-count`, count);
+    const percentage = totalIncidents === 0
+      ? 0
+      : Math.min(100, (count / totalIncidents) * 100);
+    document.querySelector(`#distribution-${incidentType}-bar`).style.width =
+      `${percentage}%`;
+  });
+}
+
+function showDashboardFailure(error) {
+  uiState.dashboard.error = error;
+  const status = document.querySelector("#dashboard-status");
+  status.textContent = getErrorMessage(error);
+  status.classList.add("dashboard-status--error");
+  status.hidden = false;
+}
+
+function normalizeCount(value) {
+  const count = Number(value);
+  return Number.isInteger(count) && count >= 0 ? count : 0;
+}
+
+function normalizeIncidentType(value) {
+  const normalized = String(value || "Other").toLowerCase();
+  return ["fire", "medical", "accident", "other"].includes(normalized)
+    ? normalized
+    : "other";
+}
+
+function formatDashboardDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? t("unknown")
+    : date.toLocaleString(getLocale(), {
+      dateStyle: "short",
+      timeStyle: "short"
+    });
+}
+
+function shortenDescription(value) {
+  const maximumLength = 72;
+  return value.length <= maximumLength
+    ? value
+    : `${value.slice(0, maximumLength - 1).trimEnd()}…`;
 }
 
 function refreshAnalysisUi() {

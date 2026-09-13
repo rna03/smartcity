@@ -42,6 +42,11 @@ GET {{SmartCity.Api_HostAddress}}/api/location-analysis/accessibility?latitude=4
 Accept: application/json
 
 ###
+
+GET {{SmartCity.Api_HostAddress}}/api/dashboard/summary
+Accept: application/json
+
+###
 ### List incidents (Phase 4B)
 GET {{SmartCity.Api_HostAddress}}/api/incidents
 Accept: application/json

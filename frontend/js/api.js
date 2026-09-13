@@ -94,6 +94,10 @@ export function getAccessibilityAnalysis(latitude, longitude) {
   return getJson(`/api/location-analysis/accessibility?${query}`);
 }
 
+export function getDashboardSummary() {
+  return getJson("/api/dashboard/summary");
+}
+
 export function getIncidents() {
   return getJson("/api/incidents");
 }

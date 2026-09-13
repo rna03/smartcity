@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<ILocationAnalysisService, PostGisLocationAnalysisService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IIncidentService, IncidentService>();
+        services.AddScoped<IDashboardAnalyticsService, DashboardAnalyticsService>();
 
         return services;
     }

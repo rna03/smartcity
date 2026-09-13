@@ -250,6 +250,49 @@ Bu skor straight-line/geodesic mekânsal mesafeyi kullanır. Yolculuk süresini,
 yol ağı rotasını, trafik koşullarını veya gerçek acil durum sevk kararlarını
 temsil etmez.
 
+## Phase 4C-3: Dashboard Analytics
+
+Dashboard, sistemdeki olay etkinliğini haritayı değiştirmeden kompakt bir özet
+alanında gösterir. Toplam olay sayısı ile `Fire`, `Medical`, `Accident` ve
+`Other` türlerinin ayrı sayıları; tür dağılım çubukları ve en yeni 5 olay
+görüntülenir.
+
+```http
+GET /api/dashboard/summary
+```
+
+Örnek response:
+
+```json
+{
+  "totalIncidents": 12,
+  "incidentCounts": {
+    "fire": 4,
+    "medical": 5,
+    "accident": 2,
+    "other": 1
+  },
+  "latestIncidents": [
+    {
+      "id": 12,
+      "type": "Medical",
+      "latitude": 41.04,
+      "longitude": 29.01,
+      "description": "Example",
+      "createdAtUtc": "2026-09-13T12:00:00+00:00"
+    }
+  ]
+}
+```
+
+Sayım, gruplama ve en yeni kayıt seçimi veritabanında `Count`, `GroupBy`,
+`OrderBy` ve `Take(5)` ile yapılır; olay tablosunun tamamı dashboard hesabı için
+uygulama belleğine alınmaz. Dashboard sayfa açılışında otomatik yüklenir ve yeni
+bir olay başarıyla kaydedildiğinde tarayıcı sayfası yenilenmeden tekrar sorgulanır.
+Görünen başlıklar ve olay türleri mevcut TR/EN yerelleştirme katmanında çevrilir;
+API enum değerleri İngilizce kalır. Dağılım görünümü bağımlılık eklemeyen CSS
+çubuklarıdır; zaman serisi, heatmap veya ileri analitik bu fazın kapsamında değildir.
+
 ## Çalıştırma
 
 Gereksinimler: .NET 10 SDK ve Docker Desktop (Compose v2).
@@ -288,6 +331,7 @@ Invoke-RestMethod http://localhost:5113/api/roads
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/coverage?latitude=41.04&longitude=29.01"
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/accessibility?latitude=41.04&longitude=29.01"
+Invoke-RestMethod http://localhost:5113/api/dashboard/summary
 Invoke-RestMethod http://localhost:5113/api/incidents
 Invoke-RestMethod -Method Post http://localhost:5113/api/incidents `
   -ContentType "application/json" `

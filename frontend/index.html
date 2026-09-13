@@ -34,6 +34,81 @@
   </header>
 
   <main class="dashboard">
+    <section class="analytics-summary panel-card" aria-labelledby="dashboard-title">
+      <header class="analytics-summary__header">
+        <div>
+          <p class="panel-card__label" data-i18n="systemActivity">System activity</p>
+          <h2 id="dashboard-title" data-i18n="dashboard">Dashboard</h2>
+        </div>
+        <p id="dashboard-status" class="dashboard-status" role="status"
+          aria-live="polite" hidden></p>
+      </header>
+
+      <div class="analytics-summary__content">
+        <dl class="dashboard-statistics">
+          <div class="dashboard-stat dashboard-stat--total">
+            <dt data-i18n="totalIncidents">Total Incidents</dt>
+            <dd id="dashboard-total-incidents">0</dd>
+          </div>
+          <div class="dashboard-stat dashboard-stat--fire">
+            <dt data-i18n="fire">Fire</dt>
+            <dd id="dashboard-fire-incidents">0</dd>
+          </div>
+          <div class="dashboard-stat dashboard-stat--medical">
+            <dt data-i18n="medical">Medical</dt>
+            <dd id="dashboard-medical-incidents">0</dd>
+          </div>
+          <div class="dashboard-stat dashboard-stat--accident">
+            <dt data-i18n="accident">Accident</dt>
+            <dd id="dashboard-accident-incidents">0</dd>
+          </div>
+          <div class="dashboard-stat dashboard-stat--other">
+            <dt data-i18n="other">Other</dt>
+            <dd id="dashboard-other-incidents">0</dd>
+          </div>
+        </dl>
+
+        <section class="latest-incidents" aria-labelledby="latest-incidents-title">
+          <h3 id="latest-incidents-title" data-i18n="latestIncidents">Latest Incidents</h3>
+          <ul id="latest-incidents-list" class="latest-incidents__list"></ul>
+          <p id="no-incidents-message" class="dashboard-empty" data-i18n="noIncidentsYet"
+            hidden>No incidents yet</p>
+        </section>
+
+        <section class="incident-distribution" aria-labelledby="incident-distribution-title">
+          <h3 id="incident-distribution-title" data-i18n="incidentDistribution">
+            Incident Distribution
+          </h3>
+          <ul class="incident-distribution__list">
+            <li>
+              <div><span data-i18n="fire">Fire</span><strong id="distribution-fire-count">0</strong></div>
+              <span class="incident-distribution__track" aria-hidden="true">
+                <span id="distribution-fire-bar" class="incident-distribution__fill incident-distribution__fill--fire"></span>
+              </span>
+            </li>
+            <li>
+              <div><span data-i18n="medical">Medical</span><strong id="distribution-medical-count">0</strong></div>
+              <span class="incident-distribution__track" aria-hidden="true">
+                <span id="distribution-medical-bar" class="incident-distribution__fill incident-distribution__fill--medical"></span>
+              </span>
+            </li>
+            <li>
+              <div><span data-i18n="accident">Accident</span><strong id="distribution-accident-count">0</strong></div>
+              <span class="incident-distribution__track" aria-hidden="true">
+                <span id="distribution-accident-bar" class="incident-distribution__fill incident-distribution__fill--accident"></span>
+              </span>
+            </li>
+            <li>
+              <div><span data-i18n="other">Other</span><strong id="distribution-other-count">0</strong></div>
+              <span class="incident-distribution__track" aria-hidden="true">
+                <span id="distribution-other-bar" class="incident-distribution__fill incident-distribution__fill--other"></span>
+              </span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
     <aside class="info-panel" aria-label="Map information" data-i18n-aria-label="mapInformation">
       <section class="panel-card">
         <p class="panel-card__label" data-i18n="pilotArea">Pilot area</p>
