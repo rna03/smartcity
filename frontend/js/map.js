@@ -128,6 +128,15 @@ export function refreshMapTranslations(state) {
   state.layerControl = createLayerControl(state);
   state.zoomControl = createZoomControl(state.map);
   state.map.closePopup();
+
+  for (const layerGroup of Object.values(state.layers)) {
+    layerGroup.eachLayer((layer) => {
+      const tooltip = layer.getTooltip?.();
+      if (tooltip) {
+        layer.setTooltipContent(tooltip.getContent());
+      }
+    });
+  }
 }
 
 function createZoomControl(map) {

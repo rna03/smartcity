@@ -1,170 +1,262 @@
 # SmartCity Location Intelligence
 
-A GIS-based emergency-service location-intelligence and decision-support system
-built with ASP.NET Core, PostgreSQL/PostGIS, OpenStreetMap/Overpass, and Leaflet.
+ASP.NET Core, PostgreSQL/PostGIS, OpenStreetMap/Overpass ve Leaflet ile geliştirilmiş CBS tabanlı acil hizmet konum analizi ve karar destek sistemi.
 
-## 1. Project Overview
+## Proje Hakkında
 
-SmartCity imports real emergency-service and road data for a configurable pilot
-area, stores spatial features in PostGIS, and exposes an interactive bilingual
-map. A user can inspect nearby services, compare coverage and accessibility,
-preview an explainable incident-priority score, create an incident, and see the
-dashboard update without reloading the page.
+SmartCity Location Intelligence, yapılandırılabilir bir pilot bölge için hastane, itfaiye istasyonu ve ana yol verilerini OpenStreetMap'den alır; mekânsal verileri PostGIS üzerinde saklar ve aynı origin üzerinden sunulan Türkçe/İngilizce Leaflet arayüzünde görselleştirir.
 
-The current pilot area is a small Beşiktaş, İstanbul bounding box. Its size is
-deliberately limited to keep public Overpass API usage responsible and the demo
-quick to reproduce.
+Projenin temel amacı:
 
-## 2. Problem Statement
+> Harita üzerinde seçilen bir konumun acil hizmetlere erişimini mekânsal olarak analiz eden ve olay yönetimi için açıklanabilir karar desteği sağlayan CBS tabanlı bir sistem.
 
-Emergency-service data is inherently spatial: a service's usefulness depends not
-only on whether it exists, but also on its distance from an incident. A normal
-CRUD application does not answer those questions well. This project demonstrates
-how a clean .NET application can import open geospatial data, keep distance work
-inside a spatial database, and turn the results into transparent decision support.
+Mevcut pilot alan, İstanbul Beşiktaş çevresindeki sınırlı bir bounding box'tır. Alanın bilinçli olarak küçük tutulması, herkese açık Overpass API kaynaklarının sorumlu kullanılmasını ve demonun hızlı tekrarlanabilmesini sağlar.
 
-## 3. Key Features
+## Problem ve Amaç
 
-- Idempotent OpenStreetMap import for hospitals, fire stations, and main roads.
-- Configurable primary and fallback Overpass endpoints with bounded timeouts.
-- PostGIS nearest-hospital and nearest-fire-station analysis in meters.
-- Rule-based coverage, accessibility, and incident-priority analysis.
-- Incident persistence with recommended service, score, and priority level.
-- Database-side dashboard aggregation and latest-incident queries.
-- Leaflet map with independent layers, analysis panels, incident markers, and
-  English/Turkish UI text.
-- Liveness/readiness health endpoints and consistent API error responses.
-- Automated unit, API-controller, configuration, mapping, and persistence tests.
+Acil hizmetlerin operasyonel değeri yalnızca mevcut olmalarına değil, olay konumuna göre mekânsal yakınlıklarına da bağlıdır. Geleneksel bir CRUD uygulaması bu ilişkiyi tek başına açıklayamaz.
 
-## 4. Architecture
+Bu proje aşağıdaki teknik yaklaşımı gösterir:
 
-The solution follows a pragmatic clean-architecture dependency direction:
+- Açık coğrafi veriyi güvenli ve idempotent biçimde içeri aktarmak.
+- Nokta ve çizgi geometrilerini mekânsal bir veritabanında saklamak.
+- Mesafe ve en yakın komşu işlemlerini C# belleğine taşımadan PostGIS üzerinde çalıştırmak.
+- Analiz sonuçlarını anlaşılır, test edilebilir ve açıklanabilir karar kurallarına dönüştürmek.
+
+## Temel Özellikler
+
+- Hastane, itfaiye istasyonu ve ana yollar için idempotent OpenStreetMap import işlemi.
+- Yapılandırılabilir primary/fallback Overpass endpointleri ve sınırlı timeout değerleri.
+- Metre cinsinden en yakın hastane ve itfaiye istasyonu analizi.
+- Kural tabanlı coverage, accessibility ve incident priority hesaplamaları.
+- Önerilen hizmet, öncelik skoru ve seviyesiyle birlikte olay kaydı.
+- Veritabanı tarafında dashboard aggregation ve en güncel olay sorguları.
+- Bağımsız katmanlara, analiz panellerine ve olay markerlarına sahip Leaflet haritası.
+- Türkçe ve İngilizce kullanıcı arayüzü.
+- Liveness/readiness health endpointleri ve tutarlı API hata yanıtları.
+- Mevcut doğrulama sonucuna göre başarıyla geçen 177 otomatik test.
+
+## Sistem Mimarisi
+
+Çözüm, pragmatik bir Clean Architecture bağımlılık yönü kullanır:
 
 **Domain ← Application ← Infrastructure / API**
 
-- **SmartCity.Domain** owns entities, enums, and geospatial domain state.
-- **SmartCity.Application** owns use cases, abstractions, DTOs, validation, and
-  deterministic analysis rules.
-- **SmartCity.Infrastructure** implements database and Overpass boundaries.
-- **SmartCity.Api** composes dependencies, hosts controllers and the static UI.
-- **frontend** is a same-origin Vanilla JavaScript and Leaflet client.
-- **tests** exercises the rules and integration boundaries without requiring a
-  running production database for every test.
+```mermaid
+flowchart LR
+    UI["Leaflet Frontend"] --> API["SmartCity.Api"]
+    API --> APP["SmartCity.Application"]
+    API --> INFRA["SmartCity.Infrastructure"]
+    INFRA --> APP
+    APP --> DOMAIN["SmartCity.Domain"]
+    INFRA --> DB["PostgreSQL + PostGIS"]
+    INFRA --> OVERPASS["Overpass API"]
+```
 
-See [Architecture](docs/architecture.md) and
-[Request flows](docs/request-flows.md) for diagrams and end-to-end examples.
+- `SmartCity.Domain`: Entity, enum ve mekânsal domain durumlarını içerir.
+- `SmartCity.Application`: Use case'leri, abstraction/interface'leri, DTO'ları, validation ve deterministik analiz kurallarını barındırır.
+- `SmartCity.Infrastructure`: PostgreSQL/PostGIS erişimini ve Overpass entegrasyonunu gerçekleştirir.
+- `SmartCity.Api`: Dependency composition, controller'lar, health check'ler ve statik frontend hosting görevlerini üstlenir.
+- `frontend`: Vanilla JavaScript ve Leaflet kullanan same-origin istemcidir.
+- `tests`: İş kurallarını ve entegrasyon sınırlarını otomatik olarak doğrular.
 
-## 5. Technology Stack
+Ayrıntılı diyagramlar ve istek akışları için [mimari dokümanı](docs/architecture.md) ile [request flow dokümanına](docs/request-flows.md) bakılabilir.
 
-| Area | Technology |
+## Kullanılan Teknolojiler
+
+| Alan | Teknoloji |
 | --- | --- |
-| API/runtime | .NET 10, ASP.NET Core |
-| Data access | EF Core 10, Npgsql |
-| Spatial model | PostGIS, NetTopologySuite, SRID 4326 |
-| Database | PostgreSQL 17 + PostGIS 3.5 container |
-| Source data | OpenStreetMap through Overpass QL |
+| API ve runtime | .NET 10, ASP.NET Core |
+| Veri erişimi | EF Core 10, Npgsql |
+| Mekânsal model | PostGIS, NetTopologySuite, SRID 4326 |
+| Veritabanı | PostgreSQL 17, PostGIS 3.5 |
+| Kaynak veri | OpenStreetMap, Overpass QL |
 | Frontend | HTML, CSS, Vanilla JavaScript, Leaflet 1.9.4 |
-| Tests | xUnit, EF Core InMemory, coverlet |
-| Local orchestration | Docker Compose |
+| Test | xUnit, EF Core InMemory, coverlet |
+| Yerel orkestrasyon | Docker Compose |
 
-## 6. GIS / Spatial Capabilities
+## CBS / GIS Yaklaşımı
 
-- Hospitals and fire stations are stored as **Point** geometries.
-- Roads are stored as **LineString** geometries.
-- OSM longitude/latitude is represented as X/Y with SRID 4326.
-- GiST spatial indexes support scalable spatial access paths.
-- Nearest-service distance uses PostGIS **ST_Distance** over **geography**, so the
-  returned unit is meters rather than coordinate-system degrees.
-- The nearest rows are selected by PostgreSQL; the application does not load all
-  facilities and calculate distances in C#.
+- Hastaneler ve itfaiye istasyonları `Point` geometrisi olarak saklanır.
+- Yollar `LineString` geometrisi olarak saklanır.
+- OpenStreetMap longitude/latitude değerleri SRID 4326 ile X/Y düzeninde temsil edilir.
+- GiST spatial index'ler mekânsal sorgular için uygun erişim yolları sağlar.
+- En yakın hizmet sorgusu, PostGIS `ST_Distance` fonksiyonunu `geography` üzerinde çalıştırır; sonuç koordinat derecesi yerine metre cinsindedir.
+- Mesafe sıralama ve `LIMIT` işlemi PostgreSQL/PostGIS tarafında yapılır; tüm hizmet kayıtları C# belleğine yüklenmez.
 
-Distances shown by this project are straight-line/geodesic distances. Displayed
-connector lines are not road routes.
+Projede kullanılan **geodesic distance**, iki koordinat arasındaki düz çizgi temelli mekânsal mesafedir. Bu değer gerçek yol rotası, seyahat süresi, trafik koşulu veya tahmini varış süresi değildir. Haritada gösterilen bağlantı çizgileri de rota çizgisi değildir.
 
-## 7. Emergency Analysis Flow
+## OpenStreetMap ve Overpass Veri Akışı
 
-After a map click, the selected latitude/longitude is validated and sent to the
-API. The Infrastructure layer asks PostGIS for the nearest hospital and fire
-station. Application services reuse that result to produce:
+OpenStreetMap verisi doğrudan bir dosyadan değil, Overpass API'ye gönderilen Overpass QL sorgusu üzerinden alınır:
 
-1. nearest-service details and distances;
-2. service coverage: **Good**, **Moderate**, **Poor**, or **Unavailable**;
-3. an accessibility score from 0 to 100;
-4. an explainable incident-priority preview for a selected incident type.
+1. Pilot alan sınırları `backend/SmartCity.Api/appsettings.json` içinden okunur.
+2. `OverpassClient`, bounding box için hastane, itfaiye istasyonu ve ana yol sorgusunu oluşturur.
+3. İstek önce yapılandırılmış primary endpoint'e gönderilir.
+4. Network hatası, timeout veya HTTP 5xx durumunda yalnızca bir fallback denemesi yapılır; HTTP 4xx yanıtları otomatik olarak tekrar denenmez.
+5. OSM yanıtı domain modellerine dönüştürülür ve PostGIS'e kaydedilir.
+6. `(Source, ExternalId)` unique anahtarı tekrar import işlemlerinin idempotent kalmasını sağlar.
 
-The same priority workflow runs during incident creation before the score and
-level are persisted. See [Request flows](docs/request-flows.md).
+Varsayılan endpoint ve timeout değerleri `OpenStreetMap` configuration bölümü altındadır. Development ortamında primary ve fallback timeout değerleri 90 saniyedir. İçeri aktarma otomatik değildir; veritabanı hazır olduktan sonra açıkça tetiklenir:
 
-## 8. Incident Priority Decision Support
+```powershell
+Invoke-RestMethod -Method Post http://localhost:5113/api/import/openstreetmap
+```
 
-Phase 5A uses a deterministic sum:
+## Mekânsal Analizler
+
+### En Yakın Acil Hizmet
+
+`GET /api/location-analysis/nearest`, seçilen koordinata en yakın hastaneyi ve itfaiye istasyonunu PostGIS üzerinde belirler. Yanıtta hizmet kimliği, adı, koordinatları ve metre cinsinden geodesic mesafe bulunur.
+
+### Coverage Analysis
+
+Coverage seviyesi, en yakın hastane ve itfaiye istasyonu mesafeleri için ayrı ayrı hesaplanır:
+
+| Mesafe | Coverage level |
+| --- | --- |
+| ≤ 2.000 m | `Good` |
+| > 2.000 m ve ≤ 5.000 m | `Moderate` |
+| > 5.000 m | `Poor` |
+| Hizmet bulunamadı | `Unavailable` |
+
+Hizmetlerden biri `Unavailable` ise overall sonuç `Unavailable`; biri `Poor` ise `Poor`; aksi durumda biri `Moderate` ise `Moderate`, ikisi de `Good` ise `Good` olur.
+
+### Accessibility Score
+
+Her hizmet için mesafeye göre 0-50 arasında puan üretilir; hastane ve itfaiye puanları toplanarak 0-100 arası accessibility score hesaplanır.
+
+| Hizmet mesafesi | Hizmet puanı |
+| --- | ---: |
+| ≤ 1.000 m | 50 |
+| > 1.000 m ve ≤ 2.000 m | 45 |
+| > 2.000 m ve ≤ 3.000 m | 35 |
+| > 3.000 m ve ≤ 5.000 m | 25 |
+| > 5.000 m | 10 |
+| Hizmet bulunamadı | 0 |
+
+| Toplam skor | Accessibility level |
+| --- | --- |
+| 80-100 | `Excellent` |
+| 60-79 | `Good` |
+| 40-59 | `Moderate` |
+| 20-39 | `Poor` |
+| 0-19 | `Critical` |
+
+## Olay (Incident) Yönetimi
+
+Kullanıcı haritada bir konum seçerek `Fire`, `Medical`, `Accident` veya `Other` türünde olay oluşturabilir. Açıklama alanı isteğe bağlıdır. Koordinatlar API tarafından doğrulanır.
+
+Olay oluşturma sırasında:
+
+1. mekânsal analiz sonucu alınır;
+2. incident priority hesaplanır;
+3. uygun olduğunda ilgili acil hizmet önerisi yanıta eklenir;
+4. olay; konum, tür, açıklama, zaman, priority score ve priority level ile saklanır;
+5. frontend marker ve dashboard bilgilerini günceller.
+
+`GET /api/incidents` olayları en yeniden eskiye doğru döndürür.
+
+## Olay Önceliklendirme Sistemi
+
+Öncelik mekanizması deterministik ve açıklanabilir bir toplam kullanır:
 
 **priority = incident base + relevant-service distance + accessibility penalty**
 
-The result is clamped to 0–100.
+Sonuç 0-100 aralığına sınırlandırılır.
 
-| Incident type | Base |
+| Incident type | Base score |
 | --- | ---: |
-| Fire | 40 |
-| Medical | 35 |
-| Accident | 30 |
-| Other | 20 |
+| `Fire` | 40 |
+| `Medical` | 35 |
+| `Accident` | 30 |
+| `Other` | 20 |
 
-| Relevant-service distance | Contribution |
+| İlgili hizmet mesafesi | Katkı |
 | --- | ---: |
-| ≤ 1,000 m | 0 |
-| > 1,000 and ≤ 2,000 m | 10 |
-| > 2,000 and ≤ 3,000 m | 20 |
-| > 3,000 and ≤ 5,000 m | 30 |
-| > 5,000 m | 40 |
-| Service unavailable | 50 |
+| ≤ 1.000 m | 0 |
+| > 1.000 m ve ≤ 2.000 m | 10 |
+| > 2.000 m ve ≤ 3.000 m | 20 |
+| > 3.000 m ve ≤ 5.000 m | 30 |
+| > 5.000 m | 40 |
+| Hizmet bulunamadı | 50 |
 
-| Accessibility | Penalty |
+| Accessibility level | Penalty |
 | --- | ---: |
-| Excellent | 0 |
-| Good | 5 |
-| Moderate | 10 |
-| Poor | 15 |
-| Critical | 20 |
+| `Excellent` | 0 |
+| `Good` | 5 |
+| `Moderate` | 10 |
+| `Poor` | 15 |
+| `Critical` | 20 |
 
 | Final score | Priority level |
 | --- | --- |
-| 0–29 | Low |
-| 30–49 | Medium |
-| 50–69 | High |
-| 70–100 | Critical |
+| 0-29 | `Low` |
+| 30-49 | `Medium` |
+| 50-69 | `High` |
+| 70-100 | `Critical` |
 
-The API also returns the three score components, relevant service, distance, and
-accessibility level so the decision is auditable. Full details are in
-[Technical decisions](docs/technical-decisions.md).
+Bu sistem **kural tabanlı ve açıklanabilir bir karar desteğidir**. Machine learning kullanmaz ve resmi bir acil durum sevk, müdahale veya tıbbi triyaj sistemi değildir. API; base score, distance contribution ve accessibility penalty bileşenlerini ayrı döndürerek sonucun izlenebilir olmasını sağlar.
 
-## 9. API Endpoints
+## Dashboard ve Analitik
 
-| Method | Path | Purpose |
+Dashboard aşağıdaki bilgileri veritabanı tarafında aggregate eder:
+
+- toplam olay sayısı;
+- olay türüne göre sayılar;
+- priority level'a göre sayılar;
+- en yeni olaylar ve saklanan öncelik bilgileri.
+
+Olay oluşturma başarılı olduğunda frontend dashboard özetini yeniden yükler. Bu bölüm operasyonel bir BI veya gerçek zamanlı trafik dashboard'u değildir.
+
+## API Endpointleri
+
+| Method | Path | Açıklama |
 | --- | --- | --- |
-| GET | /health/live | Process liveness |
-| GET | /health/ready | PostgreSQL readiness |
-| GET | /api/map/config | Pilot-area map configuration |
-| POST | /api/import/openstreetmap | Import OSM spatial data |
-| GET | /api/hospitals | List hospitals |
-| GET | /api/fire-stations | List fire stations |
-| GET | /api/roads | List main roads |
-| GET | /api/location-analysis/nearest | Nearest hospital and fire station |
-| GET | /api/location-analysis/coverage | Emergency-service coverage |
-| GET | /api/location-analysis/accessibility | Accessibility score |
-| GET | /api/location-analysis/incident-priority | Priority preview |
-| POST | /api/incidents | Create and prioritize an incident |
-| GET | /api/incidents | List incidents newest first |
-| GET | /api/dashboard/summary | Counts and latest incidents |
+| `GET` | `/health/live` | Uygulama process liveness kontrolü |
+| `GET` | `/health/ready` | PostgreSQL readiness kontrolü |
+| `GET` | `/api/map/config` | Pilot alan harita configuration bilgisi |
+| `POST` | `/api/import/openstreetmap` | OSM mekânsal verilerini import eder |
+| `GET` | `/api/hospitals` | Hastaneleri listeler |
+| `GET` | `/api/fire-stations` | İtfaiye istasyonlarını listeler |
+| `GET` | `/api/roads` | Ana yolları listeler |
+| `GET` | `/api/location-analysis/nearest` | En yakın hastane ve itfaiye istasyonu |
+| `GET` | `/api/location-analysis/coverage` | Acil hizmet coverage analizi |
+| `GET` | `/api/location-analysis/accessibility` | Accessibility score analizi |
+| `GET` | `/api/location-analysis/incident-priority` | Incident priority önizlemesi |
+| `POST` | `/api/incidents` | Olay oluşturur ve önceliklendirir |
+| `GET` | `/api/incidents` | Olayları en yeniden eskiye listeler |
+| `GET` | `/api/dashboard/summary` | Olay sayıları ve en yeni olaylar |
 
-Spatial analysis uses **latitude** and **longitude** query parameters. Priority
-preview additionally requires **incidentType**: **Fire**, **Medical**,
-**Accident**, or **Other**. See [API reference](docs/api.md) and the executable
-[HTTP examples](backend/SmartCity.Api/SmartCity.Api.http).
+Mekânsal analiz endpointleri `latitude` ve `longitude` query parametrelerini kullanır. Incident priority endpointi ayrıca `incidentType` (`Fire`, `Medical`, `Accident`, `Other`) parametresini bekler.
 
-## 10. Project Structure
+Örnek:
 
-~~~text
+```http
+GET /api/location-analysis/nearest?latitude=41.04&longitude=29.01
+GET /api/location-analysis/incident-priority?latitude=41.04&longitude=29.01&incidentType=Fire
+```
+
+Ayrıntılar için [API dokümanı](docs/api.md) ve çalıştırılabilir [HTTP örnekleri](backend/SmartCity.Api/SmartCity.Api.http) kullanılabilir.
+
+## Veritabanı ve PostGIS
+
+PostgreSQL genel amaçlı ilişkisel veritabanı yönetim sistemidir. PostGIS ise PostgreSQL'e `geometry`/`geography` veri tipleri, mekânsal fonksiyonlar ve spatial index desteği ekleyen bir extension'dır. Projede ilişkisel kayıt yönetimini PostgreSQL, coğrafi veri ve mesafe işlemlerini PostGIS yetenekleri sağlar.
+
+| Entity / tablo | Rol |
+| --- | --- |
+| `Hospital` / `hospitals` | OSM hastane noktası ve kaynak kimliği |
+| `FireStation` / `fire_stations` | OSM itfaiye noktası ve kaynak kimliği |
+| `Road` / `roads` | OSM ana yol çizgisi ve yol sınıfı |
+| `Incident` / `incidents` | Konum, tür, açıklama, zaman ve öncelik bilgisi |
+| `Region` / `regions` | Polygon tabanlı bölgesel model altyapısı |
+| `LocationAnalysis` / `location_analyses` | Bölge bağlantılı analiz modeli altyapısı |
+
+OSM tabanlı tablolardaki `(Source, ExternalId)` unique anahtarı import idempotency sağlar. Mekânsal kolonlar açık geometry tipleri ve GiST index'ler ile yapılandırılmıştır. Mevcut migration'lar eski olay kayıtlarını korur; priority migration'ı mevcut kayıtları score `0`, level `Low` değerleriyle doldurur.
+
+## Proje Klasör Yapısı
+
+```text
 .
 ├── backend/
 │   ├── SmartCity.Api/
@@ -178,133 +270,132 @@ preview additionally requires **incidentType**: **Fire**, **Medical**,
 ├── docs/
 ├── docker-compose.yml
 └── SmartCity.slnx
-~~~
+```
 
-## 11. Database Model
+## Kurulum ve Çalıştırma
 
-| Entity/table | Spatial/data role |
-| --- | --- |
-| Hospital / hospitals | OSM facility point and source identity |
-| FireStation / fire_stations | OSM facility point and source identity |
-| Road / roads | OSM main-road line and road class |
-| Incident / incidents | Selected point, type, description, time, priority |
-| Region / regions | Polygon-ready regional model |
-| LocationAnalysis / location_analyses | Region-linked analysis model |
+Gereksinimler:
 
-OSM-backed tables use a unique **(Source, ExternalId)** key to make repeated
-imports idempotent. Spatial columns use explicit geometry types and GiST indexes.
-EF Core migrations preserve existing incident rows; the priority migration
-backfills them as score **0**, level **Low**.
+- .NET 10 SDK
+- Docker Desktop ve Docker Compose v2
+- Overpass API, Leaflet CDN assetleri ve OSM map tile'ları için internet erişimi
 
-## 12. Running the Project
+Repository kök dizininde:
 
-Prerequisites: .NET 10 SDK, Docker Desktop with Compose v2, and internet access
-for Overpass, Leaflet CDN assets, and OSM map tiles.
-
-~~~powershell
+```powershell
 Copy-Item .env.example .env
-docker compose up -d database
-docker compose ps
-
 dotnet tool restore
 dotnet restore SmartCity.slnx
-dotnet tool run dotnet-ef database update --project backend/SmartCity.Infrastructure --startup-project backend/SmartCity.Api
-dotnet run --project backend/SmartCity.Api --launch-profile http
-~~~
+dotnet tool run dotnet-ef database update --project backend/SmartCity.Infrastructure/SmartCity.Infrastructure.csproj --startup-project backend/SmartCity.Api/SmartCity.Api.csproj
+dotnet run --project backend/SmartCity.Api/SmartCity.Api.csproj --launch-profile http
+```
 
-Open [http://localhost:5113](http://localhost:5113). Import is intentionally not
-automatic; run it once when the database is ready:
+Uygulama başladıktan sonra [http://localhost:5113](http://localhost:5113) adresi açılır. İlk kullanımda veritabanında mekânsal veri yoksa OpenStreetMap import endpointi bir kez çağrılır.
 
-~~~powershell
-Invoke-RestMethod -Method Post http://localhost:5113/api/import/openstreetmap
-~~~
+Overpass URL/timeout değerleri ve pilot alan sınırları `backend/SmartCity.Api/appsettings.json` içindedir. Nested configuration değerleri environment variable ile değiştirilebilir; örneğin `OpenStreetMap__Primary__Url`.
 
-The checked-in password **smartcity_dev_password** is a non-secret,
-development-only default. Do not reuse it outside the local demo. Production
-deployments must override the connection string through an environment variable
-or secret manager, for example:
+## Docker ile Veritabanını Başlatma
 
-~~~powershell
+Docker, uygulamanın tamamını production ortamına deploy etmek için değil, yerel geliştirmede PostgreSQL/PostGIS veritabanını container olarak çalıştırmak için kullanılır.
+
+```powershell
+docker compose config --quiet
+docker compose up -d database
+docker compose ps
+```
+
+Container sağlıklı olduğunda API migration ve veri erişimi işlemleri çalıştırılabilir. Mevcut volume'u silmek geliştirme verilerini kaldırır; normal çalışma akışında volume reset gerekmez.
+
+Repository'deki `smartcity_dev_password` yalnızca yerel demo için kullanılan, gizli olmayan bir **development credential** değeridir; production secret değildir ve production ortamında kullanılmamalıdır. Gerçek ortamlarda bağlantı bilgileri environment variable veya uygun bir secret yönetimi yöntemiyle override edilmelidir:
+
+```powershell
 $env:ConnectionStrings__SmartCityDatabase = "Host=db;Database=smartcity;Username=app;Password=<secret>"
-~~~
+```
 
-Overpass URL/timeout settings and the pilot bounds are in
-**backend/SmartCity.Api/appsettings.json**. Environment variables can override
-nested keys, such as **OpenStreetMap__Primary__Url**. Development raises both
-endpoint timeouts to 90 seconds.
+## Migration
 
-## 13. Testing
+EF Core migration durumunu listelemek ve güncel migration'ları uygulamak için:
 
-From the repository root:
-
-~~~powershell
+```powershell
 dotnet tool restore
+dotnet tool run dotnet-ef migrations list --project backend/SmartCity.Infrastructure/SmartCity.Infrastructure.csproj --startup-project backend/SmartCity.Api/SmartCity.Api.csproj
+dotnet tool run dotnet-ef database update --project backend/SmartCity.Infrastructure/SmartCity.Infrastructure.csproj --startup-project backend/SmartCity.Api/SmartCity.Api.csproj
+```
+
+Mevcut migration zinciri initial schema, incident description ve incident priority değişikliklerini içerir. Veritabanı drop/recreate edilmeden migration yoluyla güncellenir.
+
+## Testler
+
+Repository kök dizininde:
+
+```powershell
 dotnet restore SmartCity.slnx
 dotnet build SmartCity.slnx
 dotnet test SmartCity.slnx
 git diff --check
-~~~
+```
 
-The suite covers scoring boundaries, service selection, invalid coordinates and
-incident types, Overpass fallback rules, OSM mapping, EF model configuration,
-incident persistence, and dashboard aggregation.
+Son doğrulamada **177 testin tamamı geçti**: 177 başarılı, 0 başarısız, 0 atlanan. Testler scoring sınırlarını, hizmet seçimini, geçersiz koordinat ve incident type değerlerini, Overpass fallback kurallarını, OSM mapping'i, EF Core model configuration'ını, incident persistence'ı ve dashboard aggregation'ı kapsar.
 
-## 14. Demo Scenario
+## Demo Senaryosu
 
-A concise interview demo is:
+Doğrulanmış Beşiktaş demo verisi:
 
-1. start PostGIS and the API;
-2. import and display OSM hospitals, fire stations, and roads;
-3. select a point and run nearest, coverage, and accessibility analyses;
-4. choose **Fire** and preview the explainable priority;
-5. create the incident and show its marker and refreshed dashboard metrics.
+| Veri / sonuç | Doğrulanmış değer |
+| --- | --- |
+| Hastane sayısı | 3 |
+| İtfaiye istasyonu sayısı | 2 |
+| Yol sayısı | 286 |
+| Örnek koordinat | `41.04, 29.01` |
+| En yakın hastane | Şişli Hamidiye Etfal Eğitim ve Araştırma Hastanesi, yaklaşık 1.697,68 m |
+| En yakın itfaiye | Beşiktaş İtfaiye İstasyonu, yaklaşık 1.266,69 m |
+| Coverage | `Good` |
+| Accessibility | `90 / Excellent` |
+| Fire priority | `50 / High` |
+| Medical priority | `45 / Medium` |
 
-The narrated 3–5 minute version is in [Demo script](docs/demo.md).
+Önerilen kısa demo akışı:
 
-## 15. Technical Decisions
+1. PostgreSQL/PostGIS container'ını ve API'yi başlatın.
+2. Veritabanı boşsa OSM verilerini import edip hastane, itfaiye ve yol katmanlarını gösterin.
+3. Haritada `41.04, 29.01` koordinatını seçin.
+4. Nearest, coverage ve accessibility analizlerini çalıştırın.
+5. `Fire` ve `Medical` türleri için açıklanabilir priority preview sonuçlarını inceleyin.
+6. Gerekirse bir olay oluşturup marker'ı ve yenilenen dashboard değerlerini gösterin.
 
-- PostGIS performs distance/order/limit work close to indexed spatial data.
-- NetTopologySuite keeps domain geometry strongly typed and EF-compatible.
-- HttpClientFactory manages the Overpass client; only network, timeout, and 5xx
-  failures trigger one fallback attempt. 4xx responses are not retried.
-- OSM source identifiers and database uniqueness protect import idempotency.
-- Rule-based scoring favors transparency and testable boundaries over opaque ML.
-- Vanilla JavaScript and Leaflet keep the demo lightweight; the API hosts the UI
-  at the same origin, so no broad CORS policy is needed.
+3-5 dakikalık anlatım için [demo dokümanına](docs/demo.md) bakılabilir.
 
-Trade-offs and alternatives are documented in
-[Technical decisions](docs/technical-decisions.md).
+## Teknik Kararlar
 
-## 16. Current Limitations
+- Mesafe, sıralama ve limit işlemleri indexed spatial data'ya yakın kalması için PostGIS üzerinde yürütülür.
+- NetTopologySuite, domain geometrilerini strongly typed ve EF Core ile uyumlu tutar.
+- `HttpClientFactory`, Overpass istemcisinin yaşam döngüsünü yönetir.
+- Overpass fallback yalnızca network, timeout ve 5xx hatalarında bir kez çalışır; 4xx yanıtları tekrar denenmez.
+- OSM kaynak kimlikleri ve database uniqueness import işlemini idempotent tutar.
+- Kural tabanlı analizler, opaque ML modelleri yerine şeffaflık ve test edilebilir sınırlar sağlar.
+- Vanilla JavaScript ve Leaflet istemciyi hafif tutar; frontend API ile aynı origin üzerinden sunulur.
 
-- The pilot is a small demo area, not a production citywide deployment.
-- Public Overpass availability and rate limits affect imports.
-- Distance is geodesic, not road-network travel time or traffic-aware ETA.
-- Coverage and accessibility use fixed project-level thresholds.
-- Priority is not an official dispatch protocol, medical triage system, fire
-  department procedure, or real-world response-time model.
-- The project has no authentication, authorization, dispatch workflow, ML,
-  routing engine, heatmap, or production observability stack.
-- Region and historical-analysis entities are schema foundations, not a complete
-  operational planning module.
+Kararların ayrıntıları ve değerlendirilen alternatifler [technical decisions](docs/technical-decisions.md) dokümanında yer alır. Diğer başvuru dokümanları: [request flows](docs/request-flows.md), [API](docs/api.md) ve [interview notes](docs/interview-notes.md).
 
-## 17. Future Improvements
+## Bilinen Sınırlamalar
 
-- Introduce authenticated roles and audited operational workflows.
-- Add a routing provider for travel-time estimates while retaining geodesic
-  distance as a transparent baseline.
-- Version configurable scoring policies and preserve decision audit history.
-- Add controlled scheduled imports, metrics, tracing, and resilience monitoring.
-- Expand integration tests against disposable PostgreSQL/PostGIS containers.
-- Add larger-area ingestion strategies that respect provider limits.
-- Evaluate visualization such as time series or heatmaps only when supported by a
-  defined operational question and appropriate data.
+- Mesafeler gerçek yol rotası veya seyahat süresi değildir.
+- Geodesic/düz çizgi temelli mekânsal mesafe kullanılmaktadır.
+- OpenStreetMap import işlemi harici Overpass servisinin kullanılabilirliğine ve rate limitlerine bağlıdır.
+- Pilot veri alanı sınırlıdır; sistem mevcut haliyle şehir geneli production çözümü değildir.
+- Coverage ve accessibility sabit proje eşiklerini kullanır.
+- Priority modeli kural tabanlıdır.
+- Sistem resmi acil durum sevk, müdahale veya tıbbi triyaj sistemi değildir.
+- Authentication/authorization, routing engine, gerçek zamanlı trafik, ML ve production observability mevcut değildir.
+- `Region` ve geçmiş analiz modelleri bir altyapı temelidir; eksiksiz operasyonel planlama modülü değildir.
 
-Additional review material:
+## Gelecekte Geliştirilebilecek Özellikler
 
-- [Architecture](docs/architecture.md)
-- [API reference](docs/api.md)
-- [Request flows](docs/request-flows.md)
-- [Demo script](docs/demo.md)
-- [Technical decisions](docs/technical-decisions.md)
-- [Interview notes](docs/interview-notes.md)
+Aşağıdakiler mevcut sistemin özellikleri değildir; olası geliştirme alanlarıdır:
+
+- Gerçek yol ağı üzerinden routing.
+- Seyahat süresi analizi.
+- Gerçek zamanlı trafik verisi.
+- Authentication ve authorization.
+- Daha geniş şehir verisinin kontrollü biçimde içeri alınması.
+- Production deployment, merkezi loglama, metrics, tracing ve observability.
