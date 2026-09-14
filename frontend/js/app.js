@@ -76,20 +76,37 @@ async function startApplication() {
     pilotArea.removeAttribute("data-i18n");
     pilotArea.textContent = configuration.pilotArea;
 
-    const mapState = initializeMap(configuration, (location) => {
-      selectedLocation = location;
-      selectionVersion += 1;
-      uiState.accessibility = { error: null, isLoading: false, result: null };
-      uiState.analysis = { error: null, isLoading: false, result: null };
-      uiState.coverage = { error: null, isLoading: false, result: null };
-      uiState.incident = { error: null, isLoading: false, result: null };
-      invalidatePriorityPreview();
-      showSelectedLocation(location, incidentRequestPending);
-      resetAnalysisPanel();
-      resetCoveragePanel();
-      resetAccessibilityPanel();
-      resetIncidentPanel();
-    });
+    const mapState = initializeMap(
+      configuration,
+      (location) => {
+        selectedLocation = location;
+        selectionVersion += 1;
+        uiState.accessibility = { error: null, isLoading: false, result: null };
+        uiState.analysis = { error: null, isLoading: false, result: null };
+        uiState.coverage = { error: null, isLoading: false, result: null };
+        uiState.incident = { error: null, isLoading: false, result: null };
+        invalidatePriorityPreview();
+        showSelectedLocation(location, incidentRequestPending);
+        resetAnalysisPanel();
+        resetCoveragePanel();
+        resetAccessibilityPanel();
+        resetIncidentPanel();
+      },
+      () => {
+        const warning = createUiError("selectedLocationOutsidePilotArea");
+        selectedLocation = null;
+        selectionVersion += 1;
+        uiState.accessibility = { error: null, isLoading: false, result: null };
+        uiState.analysis = { error: warning, isLoading: false, result: null };
+        uiState.coverage = { error: null, isLoading: false, result: null };
+        uiState.incident = { error: null, isLoading: false, result: null };
+        invalidatePriorityPreview();
+        resetCoveragePanel();
+        resetAccessibilityPanel();
+        resetIncidentPanel();
+        showAnalysisFailure(warning);
+        setLocationActionsEnabled(false, incidentRequestPending);
+      });
     uiState.mapState = mapState;
     configureAnalysisButton(
       mapState,
@@ -712,19 +729,25 @@ function showSelectedLocation(location, incidentRequestPending) {
     location.latitude.toFixed(6);
   document.querySelector("#selected-longitude").textContent =
     location.longitude.toFixed(6);
-  const button = document.querySelector("#find-nearest-services");
-  button.disabled = false;
-  button.textContent = t("findNearestServices");
-  const coverageButton = document.querySelector("#analyze-coverage");
-  coverageButton.disabled = false;
-  coverageButton.textContent = t("analyzeCoverage");
-  const accessibilityButton = document.querySelector("#analyze-accessibility");
-  accessibilityButton.disabled = false;
-  accessibilityButton.textContent = t("analyzeAccessibility");
-  const priorityPreviewButton = document.querySelector("#preview-priority");
-  priorityPreviewButton.disabled = false;
-  priorityPreviewButton.textContent = t("previewPriority");
-  document.querySelector("#create-incident").disabled = incidentRequestPending;
+  setLocationActionsEnabled(true, incidentRequestPending);
+}
+
+function setLocationActionsEnabled(hasSelectedLocation, incidentRequestPending) {
+  const actions = [
+    ["#find-nearest-services", "findNearestServices"],
+    ["#analyze-coverage", "analyzeCoverage"],
+    ["#analyze-accessibility", "analyzeAccessibility"],
+    ["#preview-priority", "previewPriority"]
+  ];
+
+  for (const [selector, labelKey] of actions) {
+    const button = document.querySelector(selector);
+    button.disabled = !hasSelectedLocation;
+    button.textContent = t(labelKey);
+  }
+
+  document.querySelector("#create-incident").disabled =
+    !hasSelectedLocation || incidentRequestPending;
 }
 
 function resetAnalysisPanel() {

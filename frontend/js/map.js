@@ -56,7 +56,10 @@ const incidentStyles = Object.freeze({
   other: { fillColor: "#7654b4", color: "#ffffff" }
 });
 
-export function initializeMap(configuration, onLocationSelected) {
+export function initializeMap(
+  configuration,
+  onLocationSelected,
+  onLocationRejected = () => {}) {
   if (!window.L) {
     throw new Error(t("leafletLoadError"));
   }
@@ -90,10 +93,27 @@ export function initializeMap(configuration, onLocationSelected) {
   state.layerControl = createLayerControl(state);
   state.zoomControl = createZoomControl(state.map);
 
-  renderPilotArea(layers.pilotArea, configuration);
-  setInitialView(map, configuration);
+  const pilotAreaBounds = getPilotAreaBounds(configuration);
+  const selectablePilotArea = pilotAreaBounds
+    ? window.L.latLngBounds(pilotAreaBounds)
+    : null;
+  const handledClickEvents = new WeakSet();
+  const handleLocationClick = (event) => {
+    const originalEvent = event.originalEvent;
+    if (originalEvent && handledClickEvents.has(originalEvent)) {
+      return;
+    }
 
-  map.on("click", (event) => {
+    if (originalEvent) {
+      handledClickEvents.add(originalEvent);
+    }
+
+    if (!selectablePilotArea?.contains(event.latlng)) {
+      map.closePopup();
+      onLocationRejected();
+      return;
+    }
+
     const latitude = event.latlng.lat;
     const longitude = event.latlng.lng;
     const location = { latitude, longitude };
@@ -107,7 +127,30 @@ export function initializeMap(configuration, onLocationSelected) {
       .openOn(map);
 
     onLocationSelected(location);
-  });
+  };
+  const handleMapContainerClick = (event) => {
+    if (event.target.closest?.(".leaflet-control, .leaflet-popup")) {
+      return;
+    }
+
+    const latlng = map.mouseEventToLatLng(event);
+    if (selectablePilotArea?.contains(latlng)) {
+      return;
+    }
+
+    handledClickEvents.add(event);
+    map.closePopup();
+    onLocationRejected();
+  };
+
+  renderPilotArea(
+    layers.pilotArea,
+    configuration,
+    pilotAreaBounds,
+    handleLocationClick);
+  setInitialView(map, configuration, pilotAreaBounds);
+  map.on("click", handleLocationClick);
+  map.getContainer().addEventListener("click", handleMapContainerClick, true);
 
   return state;
 }
@@ -349,8 +392,7 @@ function renderPointFeatures(state, features, layer, style, featureType) {
   return renderedCount;
 }
 
-function setInitialView(map, configuration) {
-  const bounds = getPilotAreaBounds(configuration);
+function setInitialView(map, configuration, bounds) {
   if (bounds) {
     map.fitBounds(bounds);
     return;
@@ -362,8 +404,7 @@ function setInitialView(map, configuration) {
   ], 13);
 }
 
-function renderPilotArea(layer, configuration) {
-  const bounds = getPilotAreaBounds(configuration);
+function renderPilotArea(layer, configuration, bounds, onLocationClick) {
   if (!bounds) {
     console.warn("Pilot area bounds are invalid; boundary was not rendered.");
     return;
@@ -383,6 +424,7 @@ function renderPilotArea(layer, configuration) {
       `<div class="feature-popup"><h3>${escapeHtml(configuration.pilotArea)}</h3>` +
       `<dl><dt>${t("southWest")}</dt><dd>${bounds[0][0].toFixed(5)}, ${bounds[0][1].toFixed(5)}</dd>` +
       `<dt>${t("northEast")}</dt><dd>${bounds[1][0].toFixed(5)}, ${bounds[1][1].toFixed(5)}</dd></dl></div>`)
+    .on("click", onLocationClick)
     .addTo(layer);
 }
 
