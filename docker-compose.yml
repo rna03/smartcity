@@ -5,6 +5,7 @@ services:
     environment:
       POSTGRES_DB: smartcity
       POSTGRES_USER: smartcity
+      # Local demo only; override POSTGRES_PASSWORD outside development.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartcity_dev_password}
     ports:
       - "5432:5432"

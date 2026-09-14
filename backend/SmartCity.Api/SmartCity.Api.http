@@ -1,4 +1,8 @@
 @SmartCity.Api_HostAddress = http://localhost:5113
+@latitude = 41.04
+@longitude = 29.01
+
+# Health
 
 GET {{SmartCity.Api_HostAddress}}/health/live
 
@@ -8,62 +12,78 @@ GET {{SmartCity.Api_HostAddress}}/health/ready
 
 ###
 
+# OpenStreetMap import
+
 POST {{SmartCity.Api_HostAddress}}/api/import/openstreetmap
+Accept: application/json
 
 ###
 
+# Spatial data
+
 GET {{SmartCity.Api_HostAddress}}/api/map/config
+Accept: application/json
 
 ###
 
 GET {{SmartCity.Api_HostAddress}}/api/hospitals
+Accept: application/json
 
 ###
 
 GET {{SmartCity.Api_HostAddress}}/api/fire-stations
+Accept: application/json
 
 ###
 
 GET {{SmartCity.Api_HostAddress}}/api/roads
-
-###
-### Nearest emergency services (Phase 4A)
-GET {{SmartCity.Api_HostAddress}}/api/location-analysis/nearest?latitude=41.04&longitude=29.01
-Accept: application/json
-
-###
-### Emergency service coverage (Phase 4C-1)
-GET {{SmartCity.Api_HostAddress}}/api/location-analysis/coverage?latitude=41.04&longitude=29.01
 Accept: application/json
 
 ###
 
-GET {{SmartCity.Api_HostAddress}}/api/location-analysis/accessibility?latitude=41.04&longitude=29.01
+# Spatial analysis
+
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/nearest?latitude={{latitude}}&longitude={{longitude}}
 Accept: application/json
 
 ###
 
-GET {{SmartCity.Api_HostAddress}}/api/location-analysis/incident-priority?latitude=41.04&longitude=29.01&incidentType=Fire
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/coverage?latitude={{latitude}}&longitude={{longitude}}
 Accept: application/json
 
 ###
 
-GET {{SmartCity.Api_HostAddress}}/api/dashboard/summary
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/accessibility?latitude={{latitude}}&longitude={{longitude}}
 Accept: application/json
 
 ###
-### List incidents (Phase 4B)
+
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/incident-priority?latitude={{latitude}}&longitude={{longitude}}&incidentType=Fire
+Accept: application/json
+
+###
+
+# Incidents
+
+POST {{SmartCity.Api_HostAddress}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "type": "Fire",
+  "latitude": {{latitude}},
+  "longitude": {{longitude}},
+  "description": "Warehouse fire"
+}
+
+###
+
 GET {{SmartCity.Api_HostAddress}}/api/incidents
 Accept: application/json
 
 ###
-### Create incident (Phase 4B)
-POST {{SmartCity.Api_HostAddress}}/api/incidents
-Content-Type: application/json
 
-{
-  "type": "Fire",
-  "latitude": 41.04,
-  "longitude": 29.01,
-  "description": "Building fire"
-}
+# Dashboard
+
+GET {{SmartCity.Api_HostAddress}}/api/dashboard/summary
+Accept: application/json

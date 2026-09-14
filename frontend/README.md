@@ -1,6 +1,6 @@
 # SmartCity Frontend
 
-Phase 3 arayüzü HTML, CSS, Vanilla JavaScript ve Leaflet ile hazırlanmıştır.
+Arayüz HTML, CSS, Vanilla JavaScript ve Leaflet ile hazırlanmıştır.
 Frontend ayrı bir framework veya package manager gerektirmez. Dosyalar build
 sırasında `SmartCity.Api` çıktısına kopyalanır ve backend ile aynı origin'den sunulur.
 
@@ -14,14 +14,18 @@ frontend/
 └── js/
     ├── api.js
     ├── geo.js
+    ├── i18n.js
     ├── map.js
     └── app.js
 ```
 
 - `api.js`: HTTP timeout, `response.ok` kontrolü ve API çağrıları.
 - `geo.js`: GIS → Leaflet koordinat sırası dönüşümü.
-- `map.js`: Leaflet kurulumu, pilot alan polygon'u, katmanlar, popup'lar ve `fitBounds`.
-- `app.js`: Başlangıç akışı, paralel veri yükleme ve UI durumları.
+- `i18n.js`: İngilizce/Türkçe kullanıcı metinleri ve enum gösterim çevirileri.
+- `map.js`: Leaflet kurulumu, pilot alan polygon'u, katmanlar, incident popup'ları
+  ve `fitBounds`.
+- `app.js`: Veri yükleme, spatial analizler, öncelik önizleme, incident oluşturma,
+  dashboard yenileme ve UI durumları.
 
 ## Çalıştırma
 
