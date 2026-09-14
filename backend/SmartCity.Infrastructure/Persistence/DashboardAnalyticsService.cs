@@ -30,6 +30,17 @@ internal sealed class DashboardAnalyticsService(SmartCityDbContext dbContext)
                     item => item.Type,
                     item => item.Count,
                     cancellationToken);
+            var groupedPriorityCounts = await incidents
+                .GroupBy(incident => incident.PriorityLevel)
+                .Select(group => new
+                {
+                    Level = group.Key,
+                    Count = group.Count()
+                })
+                .ToDictionaryAsync(
+                    item => item.Level,
+                    item => item.Count,
+                    cancellationToken);
             var latestIncidents = await incidents
                 .OrderByDescending(incident => incident.OccurredAt)
                 .ThenByDescending(incident => incident.Id)
@@ -40,6 +51,8 @@ internal sealed class DashboardAnalyticsService(SmartCityDbContext dbContext)
                     incident.Geometry.Y,
                     incident.Geometry.X,
                     incident.Description,
+                    incident.PriorityScore,
+                    incident.PriorityLevel,
                     incident.OccurredAt))
                 .ToListAsync(cancellationToken);
 
@@ -50,6 +63,11 @@ internal sealed class DashboardAnalyticsService(SmartCityDbContext dbContext)
                     GetCount(groupedCounts, IncidentType.Medical),
                     GetCount(groupedCounts, IncidentType.Accident),
                     GetCount(groupedCounts, IncidentType.Other)),
+                new PriorityLevelCount(
+                    GetCount(groupedPriorityCounts, PriorityLevel.Critical),
+                    GetCount(groupedPriorityCounts, PriorityLevel.High),
+                    GetCount(groupedPriorityCounts, PriorityLevel.Medium),
+                    GetCount(groupedPriorityCounts, PriorityLevel.Low)),
                 latestIncidents);
         }
         catch (Exception exception) when (IsDatabaseFailure(exception))
@@ -60,10 +78,11 @@ internal sealed class DashboardAnalyticsService(SmartCityDbContext dbContext)
         }
     }
 
-    private static int GetCount(
-        IReadOnlyDictionary<IncidentType, int> counts,
-        IncidentType incidentType) =>
-        counts.GetValueOrDefault(incidentType);
+    private static int GetCount<T>(
+        IReadOnlyDictionary<T, int> counts,
+        T key)
+        where T : notnull =>
+        counts.GetValueOrDefault(key);
 
     private static bool IsDatabaseFailure(Exception exception)
     {

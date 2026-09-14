@@ -14,6 +14,7 @@ public sealed class DashboardControllerTests
         var expected = new DashboardSummaryResponse(
             3,
             new IncidentTypeCount(1, 1, 1, 0),
+            new PriorityLevelCount(0, 1, 1, 1),
             [
                 new DashboardIncidentItem(
                     3,
@@ -21,6 +22,8 @@ public sealed class DashboardControllerTests
                     41.04,
                     29.01,
                     "Medical dashboard test",
+                    55,
+                    PriorityLevel.High,
                     new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero))
             ]);
         var service = new StubDashboardAnalyticsService(expected);

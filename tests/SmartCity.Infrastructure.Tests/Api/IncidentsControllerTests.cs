@@ -91,8 +91,19 @@ public sealed class IncidentsControllerTests
                 41.04,
                 29.01,
                 "Emergency report",
+                55,
+                PriorityLevel.High,
                 new DateTimeOffset(2026, 9, 11, 0, 0, 0, TimeSpan.Zero)),
-            null);
+            null,
+            new IncidentPriorityResult(
+                55,
+                PriorityLevel.High,
+                40,
+                10,
+                5,
+                EmergencyServiceType.FireStation,
+                1_200,
+                AccessibilityLevel.Good));
 
     private sealed class StubIncidentService(IncidentCreationResult createResult)
         : IIncidentService

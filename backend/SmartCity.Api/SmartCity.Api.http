@@ -43,6 +43,11 @@ Accept: application/json
 
 ###
 
+GET {{SmartCity.Api_HostAddress}}/api/location-analysis/incident-priority?latitude=41.04&longitude=29.01&incidentType=Fire
+Accept: application/json
+
+###
+
 GET {{SmartCity.Api_HostAddress}}/api/dashboard/summary
 Accept: application/json
 

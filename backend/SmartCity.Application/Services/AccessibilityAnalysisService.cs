@@ -16,14 +16,20 @@ public sealed class AccessibilityAnalysisService(
             latitude,
             longitude,
             cancellationToken);
+        return Analyze(nearest);
+    }
+
+    public AccessibilityAnalysisResponse Analyze(
+        NearestEmergencyServicesResult nearestServices)
+    {
         var hospital = CreateServiceScore(
-            nearest.NearestHospital?.DistanceMeters);
+            nearestServices.NearestHospital?.DistanceMeters);
         var fireStation = CreateServiceScore(
-            nearest.NearestFireStation?.DistanceMeters);
+            nearestServices.NearestFireStation?.DistanceMeters);
         var totalScore = hospital.Score + fireStation.Score;
 
         return new AccessibilityAnalysisResponse(
-            nearest.SelectedLocation,
+            nearestServices.SelectedLocation,
             hospital,
             fireStation,
             totalScore,

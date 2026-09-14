@@ -106,6 +106,28 @@
             </li>
           </ul>
         </section>
+
+        <section class="priority-counts" aria-labelledby="priority-counts-title">
+          <h3 id="priority-counts-title" data-i18n="priorityCounts">Priority Counts</h3>
+          <dl class="priority-counts__list">
+            <div class="priority-count priority-count--critical">
+              <dt data-i18n="critical">Critical</dt>
+              <dd id="dashboard-critical-incidents">0</dd>
+            </div>
+            <div class="priority-count priority-count--high">
+              <dt data-i18n="high">High</dt>
+              <dd id="dashboard-high-incidents">0</dd>
+            </div>
+            <div class="priority-count priority-count--medium">
+              <dt data-i18n="medium">Medium</dt>
+              <dd id="dashboard-medium-incidents">0</dd>
+            </div>
+            <div class="priority-count priority-count--low">
+              <dt data-i18n="low">Low</dt>
+              <dd id="dashboard-low-incidents">0</dd>
+            </div>
+          </dl>
+        </section>
       </div>
     </section>
 
@@ -249,6 +271,56 @@
           <textarea id="incident-description" name="description" maxlength="500" rows="3"
             placeholder="Briefly describe the incident" data-i18n-placeholder="incidentDescriptionPlaceholder"></textarea>
 
+          <button id="preview-priority" class="priority-preview-button" type="button" disabled
+            data-i18n="previewPriority">
+            Preview Priority
+          </button>
+
+          <p id="priority-preview-status" class="priority-preview-status" role="status"
+            aria-live="polite" hidden></p>
+          <div id="priority-preview-result" class="priority-preview-result"
+            aria-live="polite" hidden>
+            <div class="priority-preview-summary">
+              <div>
+                <span data-i18n="priorityScore">Priority Score</span>
+                <strong><span id="priority-preview-score">—</span> <small>/ 100</small></strong>
+              </div>
+              <div>
+                <span data-i18n="priorityLevel">Priority Level</span>
+                <strong id="priority-preview-level"
+                  class="coverage-badge priority-badge">—</strong>
+              </div>
+            </div>
+
+            <section class="priority-breakdown" aria-labelledby="priority-breakdown-title">
+              <h3 id="priority-breakdown-title" data-i18n="priorityBreakdown">
+                Priority Breakdown
+              </h3>
+              <dl>
+                <div>
+                  <dt data-i18n="incidentTypeScore">Incident Type Score</dt>
+                  <dd id="priority-incident-type-score">—</dd>
+                </div>
+                <div>
+                  <dt data-i18n="serviceDistanceScore">Service Distance Score</dt>
+                  <dd id="priority-service-distance-score">—</dd>
+                </div>
+                <div>
+                  <dt data-i18n="accessibilityPenalty">Accessibility Penalty</dt>
+                  <dd>
+                    <span id="priority-accessibility-penalty">—</span>
+                    <small id="priority-accessibility-level"></small>
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <div class="priority-relevant-service">
+              <span data-i18n="relevantService">Relevant Service</span>
+              <strong id="priority-relevant-service">—</strong>
+            </div>
+          </div>
+
           <button id="create-incident" class="incident-button" type="submit" disabled
             data-i18n="createIncident">
             Create Incident
@@ -259,6 +331,12 @@
         <div id="incident-result" class="incident-result" aria-live="polite" hidden>
           <strong id="created-incident-summary"></strong>
           <span id="incident-recommendation"></span>
+          <div id="created-incident-priority" class="created-incident-priority" hidden>
+            <span data-i18n="priority">Priority</span>
+            <strong id="created-incident-priority-value"
+              class="coverage-badge priority-badge">—</strong>
+            <small id="created-incident-priority-breakdown"></small>
+          </div>
         </div>
       </section>
 

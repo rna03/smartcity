@@ -51,6 +51,62 @@ public sealed class DashboardAnalyticsServiceTests
     }
 
     [Fact]
+    public async Task SummaryGroupsAllSupportedPriorityLevels()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Incidents.AddRange(
+            CreateIncident(
+                IncidentType.Fire,
+                BaselineUtc,
+                PriorityLevel.Critical,
+                90),
+            CreateIncident(
+                IncidentType.Medical,
+                BaselineUtc.AddMinutes(1),
+                PriorityLevel.Critical,
+                80),
+            CreateIncident(
+                IncidentType.Accident,
+                BaselineUtc.AddMinutes(2),
+                PriorityLevel.High,
+                60),
+            CreateIncident(
+                IncidentType.Other,
+                BaselineUtc.AddMinutes(3),
+                PriorityLevel.High,
+                55),
+            CreateIncident(
+                IncidentType.Fire,
+                BaselineUtc.AddMinutes(4),
+                PriorityLevel.High,
+                50),
+            CreateIncident(
+                IncidentType.Medical,
+                BaselineUtc.AddMinutes(5),
+                PriorityLevel.Medium,
+                40),
+            CreateIncident(
+                IncidentType.Accident,
+                BaselineUtc.AddMinutes(6),
+                PriorityLevel.Low,
+                20),
+            CreateIncident(
+                IncidentType.Other,
+                BaselineUtc.AddMinutes(7),
+                PriorityLevel.Low,
+                25));
+        await dbContext.SaveChangesAsync();
+        var service = new DashboardAnalyticsService(dbContext);
+
+        var result = await service.GetSummaryAsync(CancellationToken.None);
+
+        Assert.Equal(2, result.PriorityCounts.Critical);
+        Assert.Equal(3, result.PriorityCounts.High);
+        Assert.Equal(1, result.PriorityCounts.Medium);
+        Assert.Equal(2, result.PriorityCounts.Low);
+    }
+
+    [Fact]
     public async Task LatestIncidentsAreOrderedNewestFirst()
     {
         await using var dbContext = CreateDbContext();
@@ -71,6 +127,25 @@ public sealed class DashboardAnalyticsServiceTests
             .SequenceEqual(result.LatestIncidents
                 .Select(incident => incident.CreatedAtUtc)
                 .OrderByDescending(createdAt => createdAt)));
+    }
+
+    [Fact]
+    public async Task LatestIncidentsIncludeStoredPriority()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Incidents.Add(CreateIncident(
+            IncidentType.Fire,
+            BaselineUtc,
+            PriorityLevel.High,
+            55));
+        await dbContext.SaveChangesAsync();
+        var service = new DashboardAnalyticsService(dbContext);
+
+        var result = await service.GetSummaryAsync(CancellationToken.None);
+
+        var latest = Assert.Single(result.LatestIncidents);
+        Assert.Equal(55, latest.PriorityScore);
+        Assert.Equal(PriorityLevel.High, latest.PriorityLevel);
     }
 
     [Fact]
@@ -107,6 +182,10 @@ public sealed class DashboardAnalyticsServiceTests
         Assert.Equal(0, result.IncidentCounts.Medical);
         Assert.Equal(0, result.IncidentCounts.Accident);
         Assert.Equal(0, result.IncidentCounts.Other);
+        Assert.Equal(0, result.PriorityCounts.Critical);
+        Assert.Equal(0, result.PriorityCounts.High);
+        Assert.Equal(0, result.PriorityCounts.Medium);
+        Assert.Equal(0, result.PriorityCounts.Low);
         Assert.Empty(result.LatestIncidents);
     }
 
@@ -120,11 +199,15 @@ public sealed class DashboardAnalyticsServiceTests
 
     private static Incident CreateIncident(
         IncidentType incidentType,
-        DateTimeOffset occurredAt) =>
+        DateTimeOffset occurredAt,
+        PriorityLevel priorityLevel = PriorityLevel.Low,
+        int priorityScore = 0) =>
         new()
         {
             IncidentType = incidentType,
             Description = $"{incidentType} dashboard test",
+            PriorityScore = priorityScore,
+            PriorityLevel = priorityLevel,
             OccurredAt = occurredAt,
             Geometry = new Point(29.01, 41.04) { SRID = 4326 }
         };

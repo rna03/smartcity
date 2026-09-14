@@ -7,6 +7,8 @@ public sealed class Incident
     public int Id { get; set; }
     public IncidentType IncidentType { get; set; }
     public string? Description { get; set; }
+    public int PriorityScore { get; set; }
+    public PriorityLevel PriorityLevel { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
     public required Point Geometry { get; set; }
 

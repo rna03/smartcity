@@ -6,6 +6,7 @@ import {
   getFireStations,
   getHospitals,
   getIncidents,
+  getIncidentPriorityPreview,
   getMapConfiguration,
   getNearestEmergencyServices,
   getRoads
@@ -48,11 +49,13 @@ const uiState = {
   coverage: { error: null, isLoading: false, result: null },
   dashboard: { error: null, isLoading: false, result: null },
   incident: { error: null, isLoading: false, result: null },
+  priorityPreview: { error: null, isLoading: false, result: null },
   mapState: null,
   startupErrors: []
 };
 
 let dashboardRequestVersion = 0;
+let priorityPreviewRequestVersion = 0;
 
 document.addEventListener("DOMContentLoaded", startApplication);
 
@@ -80,6 +83,7 @@ async function startApplication() {
       uiState.analysis = { error: null, isLoading: false, result: null };
       uiState.coverage = { error: null, isLoading: false, result: null };
       uiState.incident = { error: null, isLoading: false, result: null };
+      invalidatePriorityPreview();
       showSelectedLocation(location, incidentRequestPending);
       resetAnalysisPanel();
       resetCoveragePanel();
@@ -97,6 +101,7 @@ async function startApplication() {
     configureAccessibilityButton(
       () => selectedLocation,
       () => selectionVersion);
+    configurePriorityPreviewButton(() => selectedLocation);
     const dataRequests = [
       createLayerRequest("hospitals", getHospitals, renderHospitals, "#hospital-count"),
       createLayerRequest(
@@ -171,6 +176,7 @@ function refreshLocalizedUi() {
   refreshAnalysisUi();
   refreshCoverageUi();
   refreshAccessibilityUi();
+  refreshPriorityPreviewUi();
   refreshIncidentUi();
   showErrors(uiState.startupErrors);
 }
@@ -229,6 +235,12 @@ function renderDashboardSummary(result) {
     accident: normalizeCount(result?.incidentCounts?.accident),
     other: normalizeCount(result?.incidentCounts?.other)
   };
+  const priorityCounts = {
+    critical: normalizeCount(result?.priorityCounts?.critical),
+    high: normalizeCount(result?.priorityCounts?.high),
+    medium: normalizeCount(result?.priorityCounts?.medium),
+    low: normalizeCount(result?.priorityCounts?.low)
+  };
   const totalIncidents = normalizeCount(result?.totalIncidents);
 
   setMetricCount("#dashboard-total-incidents", totalIncidents);
@@ -236,6 +248,10 @@ function renderDashboardSummary(result) {
   setMetricCount("#dashboard-medical-incidents", counts.medical);
   setMetricCount("#dashboard-accident-incidents", counts.accident);
   setMetricCount("#dashboard-other-incidents", counts.other);
+  setMetricCount("#dashboard-critical-incidents", priorityCounts.critical);
+  setMetricCount("#dashboard-high-incidents", priorityCounts.high);
+  setMetricCount("#dashboard-medium-incidents", priorityCounts.medium);
+  setMetricCount("#dashboard-low-incidents", priorityCounts.low);
   renderLatestIncidents(result?.latestIncidents);
   renderIncidentDistribution(counts, totalIncidents);
 }
@@ -285,6 +301,17 @@ function createLatestIncidentItem(incident) {
     item.append(descriptionElement);
   }
 
+  const priorityElement = document.createElement("p");
+  priorityElement.className = "latest-incidents__priority";
+  const priorityLevel = normalizePriorityLevel(incident?.priorityLevel);
+  const priorityScore = normalizeScore(incident?.priorityScore, 100);
+  priorityElement.classList.add(`priority-text--${priorityLevel}`);
+  priorityElement.textContent = t("prioritySummary", {
+    level: translatePriorityLevel(priorityLevel),
+    score: new Intl.NumberFormat(getLocale()).format(priorityScore)
+  });
+  item.append(priorityElement);
+
   return item;
 }
 
@@ -324,6 +351,54 @@ function normalizeIncidentType(value) {
   return ["fire", "medical", "accident", "other"].includes(normalized)
     ? normalized
     : "other";
+}
+
+function normalizePriorityLevel(value) {
+  const normalized = String(value || "").toLowerCase();
+  return ["low", "medium", "high", "critical"].includes(normalized)
+    ? normalized
+    : "unknown";
+}
+
+function translatePriorityLevel(value) {
+  return value === "unknown" ? t("unknown") : t(value);
+}
+
+function normalizeAccessibilityLevel(value) {
+  const normalized = String(value || "").toLowerCase();
+  return ["excellent", "good", "moderate", "poor", "critical"].includes(normalized)
+    ? normalized
+    : "unknown";
+}
+
+function translateAccessibilityLevel(value) {
+  return value === "unknown" ? t("unknown") : t(value);
+}
+
+function normalizeEmergencyServiceType(value) {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "hospital") {
+    return "hospital";
+  }
+
+  return normalized === "firestation" ? "fireStation" : "unknown";
+}
+
+function setPriorityBadge(element, value, score = null) {
+  const level = normalizePriorityLevel(value);
+  const translatedLevel = translatePriorityLevel(level);
+  element.className =
+    `coverage-badge priority-badge priority-badge--${level}`;
+  element.textContent = score === null
+    ? translatedLevel
+    : `${translatedLevel} (${new Intl.NumberFormat(getLocale()).format(score)}/100)`;
+  return level;
+}
+
+function formatScore(value, includePlus = false) {
+  const score = normalizeScore(value, 100);
+  const formatted = new Intl.NumberFormat(getLocale()).format(score);
+  return includePlus ? `+${formatted}` : formatted;
 }
 
 function formatDashboardDate(value) {
@@ -391,6 +466,24 @@ function refreshAccessibilityUi() {
   }
 }
 
+function refreshPriorityPreviewUi() {
+  const button = document.querySelector("#preview-priority");
+  button.textContent = t(uiState.priorityPreview.isLoading
+    ? "previewingPriority"
+    : "previewPriority");
+
+  if (uiState.priorityPreview.isLoading) {
+    showStatus(
+      "#priority-preview-status",
+      "calculatingPriorityScore",
+      "priority-preview-status--error");
+  } else if (uiState.priorityPreview.error) {
+    showPriorityPreviewFailure(uiState.priorityPreview.error);
+  } else if (uiState.priorityPreview.result) {
+    showPriorityPreviewResult(uiState.priorityPreview.result);
+  }
+}
+
 function refreshIncidentUi() {
   const button = document.querySelector("#create-incident");
   button.textContent = t(uiState.incident.isLoading
@@ -411,6 +504,49 @@ function showStatus(selector, messageKey, errorClass) {
   status.textContent = t(messageKey);
   status.classList.remove(errorClass);
   status.hidden = false;
+}
+
+function configurePriorityPreviewButton(getSelectedLocation) {
+  const button = document.querySelector("#preview-priority");
+  const incidentType = document.querySelector("#incident-type");
+
+  incidentType.addEventListener("change", () => {
+    invalidatePriorityPreview();
+    button.disabled = !getSelectedLocation();
+  });
+
+  button.addEventListener("click", async () => {
+    const location = getSelectedLocation();
+    if (!location) {
+      showPriorityPreviewFailure(createUiError("selectPointFirst"));
+      return;
+    }
+
+    const requestVersion = ++priorityPreviewRequestVersion;
+    const selectedIncidentType = incidentType.value;
+    setPriorityPreviewLoading(true);
+
+    try {
+      const result = await getIncidentPriorityPreview(
+        location.latitude,
+        location.longitude,
+        selectedIncidentType);
+
+      if (requestVersion !== priorityPreviewRequestVersion) {
+        return;
+      }
+
+      showPriorityPreviewResult(result);
+    } catch (error) {
+      if (requestVersion === priorityPreviewRequestVersion) {
+        showPriorityPreviewFailure(error);
+      }
+    } finally {
+      if (requestVersion === priorityPreviewRequestVersion) {
+        setPriorityPreviewLoading(false, Boolean(getSelectedLocation()));
+      }
+    }
+  });
 }
 
 function configureAccessibilityButton(getSelectedLocation, getSelectionVersion) {
@@ -585,6 +721,9 @@ function showSelectedLocation(location, incidentRequestPending) {
   const accessibilityButton = document.querySelector("#analyze-accessibility");
   accessibilityButton.disabled = false;
   accessibilityButton.textContent = t("analyzeAccessibility");
+  const priorityPreviewButton = document.querySelector("#preview-priority");
+  priorityPreviewButton.disabled = false;
+  priorityPreviewButton.textContent = t("previewPriority");
   document.querySelector("#create-incident").disabled = incidentRequestPending;
 }
 
@@ -765,6 +904,95 @@ function showAccessibilityFailure(error) {
   document.querySelector("#accessibility-results").hidden = true;
 }
 
+function invalidatePriorityPreview() {
+  priorityPreviewRequestVersion += 1;
+  uiState.priorityPreview = { error: null, isLoading: false, result: null };
+  resetPriorityPreviewPanel();
+}
+
+function resetPriorityPreviewPanel() {
+  document.querySelector("#priority-preview-result").hidden = true;
+  const status = document.querySelector("#priority-preview-status");
+  status.hidden = true;
+  status.textContent = "";
+  status.classList.remove("priority-preview-status--error");
+  document.querySelector("#preview-priority").textContent = t("previewPriority");
+}
+
+function setPriorityPreviewLoading(isLoading, hasSelectedLocation = true) {
+  uiState.priorityPreview.isLoading = isLoading;
+  if (isLoading) {
+    uiState.priorityPreview.error = null;
+    uiState.priorityPreview.result = null;
+  }
+
+  const button = document.querySelector("#preview-priority");
+  button.disabled = isLoading || !hasSelectedLocation;
+  button.textContent = t(isLoading ? "previewingPriority" : "previewPriority");
+
+  if (isLoading) {
+    showStatus(
+      "#priority-preview-status",
+      "calculatingPriorityScore",
+      "priority-preview-status--error");
+    document.querySelector("#priority-preview-result").hidden = true;
+  }
+}
+
+function showPriorityPreviewResult(result) {
+  uiState.priorityPreview.error = null;
+  uiState.priorityPreview.result = result;
+
+  const priorityScore = normalizeScore(result?.priorityScore, 100);
+  document.querySelector("#priority-preview-score").textContent =
+    new Intl.NumberFormat(getLocale()).format(priorityScore);
+  setPriorityBadge(
+    document.querySelector("#priority-preview-level"),
+    result?.priorityLevel);
+
+  const breakdown = result?.breakdown;
+  document.querySelector("#priority-incident-type-score").textContent =
+    formatScore(breakdown?.incidentTypeBaseScore);
+  document.querySelector("#priority-service-distance-score").textContent =
+    formatScore(breakdown?.serviceDistanceScore, true);
+  document.querySelector("#priority-accessibility-penalty").textContent =
+    formatScore(breakdown?.accessibilityPenalty, true);
+
+  const accessibilityLevel = normalizeAccessibilityLevel(result?.accessibilityLevel);
+  document.querySelector("#priority-accessibility-level").textContent =
+    `(${translateAccessibilityLevel(accessibilityLevel)})`;
+  document.querySelector("#priority-relevant-service").textContent =
+    formatRelevantService(result?.relevantService);
+
+  document.querySelector("#priority-preview-status").hidden = true;
+  document.querySelector("#priority-preview-result").hidden = false;
+}
+
+function formatRelevantService(relevantService) {
+  const serviceType = normalizeEmergencyServiceType(relevantService?.serviceType);
+  const distance = relevantService?.distanceMeters;
+
+  if (serviceType === "unknown" && (distance === null || distance === undefined)) {
+    return t("unavailable");
+  }
+
+  const service = serviceType === "unknown" ? t("unknown") : t(serviceType);
+  const formattedDistance = distance === null || distance === undefined
+    ? t("distanceUnavailable")
+    : formatDistance(distance);
+  return `${service} – ${formattedDistance}`;
+}
+
+function showPriorityPreviewFailure(error) {
+  uiState.priorityPreview.error = error;
+  uiState.priorityPreview.result = null;
+  const status = document.querySelector("#priority-preview-status");
+  status.textContent = getErrorMessage(error);
+  status.classList.add("priority-preview-status--error");
+  status.hidden = false;
+  document.querySelector("#priority-preview-result").hidden = true;
+}
+
 function resetIncidentPanel() {
   document.querySelector("#incident-result").hidden = true;
   const status = document.querySelector("#incident-status");
@@ -806,7 +1034,41 @@ function showIncidentResult(result) {
         `(${formatDistance(recommendation.distanceMeters)})`
     })
     : t("noMatchingService");
+  renderCreatedIncidentPriority(result);
   document.querySelector("#incident-result").hidden = false;
+}
+
+function renderCreatedIncidentPriority(result) {
+  const container = document.querySelector("#created-incident-priority");
+  const priority = result?.priority;
+  const incident = result?.incident;
+
+  if (!priority &&
+      (incident?.priorityScore === undefined || incident?.priorityLevel === undefined)) {
+    container.hidden = true;
+    return;
+  }
+
+  const score = normalizeScore(incident?.priorityScore ?? priority?.score, 100);
+  const level = setPriorityBadge(
+    document.querySelector("#created-incident-priority-value"),
+    incident?.priorityLevel ?? priority?.level,
+    score);
+  const breakdown = document.querySelector("#created-incident-priority-breakdown");
+
+  if (priority) {
+    breakdown.textContent =
+      `${t("incidentTypeScore")}: ${formatScore(priority.incidentTypeBaseScore)} · ` +
+      `${t("serviceDistanceScore")}: ${formatScore(priority.serviceDistanceScore, true)} · ` +
+      `${t("accessibilityPenalty")}: ${formatScore(priority.accessibilityPenalty, true)}`;
+    breakdown.hidden = false;
+  } else {
+    breakdown.textContent = "";
+    breakdown.hidden = true;
+  }
+
+  container.dataset.priorityLevel = level;
+  container.hidden = false;
 }
 
 function showIncidentFailure(error) {

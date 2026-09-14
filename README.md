@@ -1,7 +1,8 @@
 # SmartCity Location Intelligence
 
-Akıllı Şehir Acil Hizmet Lokasyon Analiz Sistemi. Phase 3, mevcut Phase 1–2
-mimarisi üzerine Leaflet tabanlı interaktif bir GIS harita arayüzü ekler.
+Akıllı Şehir Acil Hizmet Lokasyon Analiz Sistemi. Phase 1–4 kapsamındaki
+PostGIS analizleri, incident yönetimi, Leaflet haritası ve dashboard üzerine
+Phase 5A açıklanabilir incident öncelik karar desteğini ekler.
 
 ## Mimari
 
@@ -272,6 +273,12 @@ GET /api/dashboard/summary
     "accident": 2,
     "other": 1
   },
+  "priorityCounts": {
+    "critical": 2,
+    "high": 3,
+    "medium": 1,
+    "low": 6
+  },
   "latestIncidents": [
     {
       "id": 12,
@@ -279,6 +286,8 @@ GET /api/dashboard/summary
       "latitude": 41.04,
       "longitude": 29.01,
       "description": "Example",
+      "priorityScore": 55,
+      "priorityLevel": "High",
       "createdAtUtc": "2026-09-13T12:00:00+00:00"
     }
   ]
@@ -292,6 +301,58 @@ bir olay başarıyla kaydedildiğinde tarayıcı sayfası yenilenmeden tekrar so
 Görünen başlıklar ve olay türleri mevcut TR/EN yerelleştirme katmanında çevrilir;
 API enum değerleri İngilizce kalır. Dağılım görünümü bağımlılık eklemeyen CSS
 çubuklarıdır; zaman serisi, heatmap veya ileri analitik bu fazın kapsamında değildir.
+
+## Phase 5A: Incident Priority Score
+
+Phase 5A, incident türünü, ilgili önerilen acil hizmete olan geodesic mesafeyi ve
+mevcut erişilebilirlik seviyesini birleştiren deterministik, açıklanabilir bir
+karar-destek skoru üretir. `PriorityScore` (0–100) ve `PriorityLevel` (`Low`,
+`Medium`, `High`, `Critical`) yeni incident ile birlikte saklanır. Önceki kayıtlar
+migration sırasında güvenli biçimde `0` / `Low` değerlerini alır.
+
+Tür taban puanları `Fire=40`, `Medical=35`, `Accident=30`, `Other=20` değerleridir.
+İlgili hizmet mesafesi puanı 1.000 metreye kadar `0`; sırasıyla 2.000, 3.000 ve
+5.000 metre sınırlarında `10`, `20`, `30`; 5.000 metrenin üzerinde `40`; hizmet
+bulunamadığında `50` puandır. Erişilebilirlik cezası `Excellent=0`, `Good=5`,
+`Moderate=10`, `Poor=15`, `Critical=20` olarak eklenir. Toplam 0–100 aralığına
+sınırlandırılır ve 0–29 `Low`, 30–49 `Medium`, 50–69 `High`, 70–100 `Critical`
+olarak sınıflandırılır.
+
+Incident oluşturmadan önce aynı backend hesabı şu endpoint ile önizlenebilir:
+
+```http
+GET /api/location-analysis/incident-priority?latitude=41.04&longitude=29.01&incidentType=Fire
+```
+
+```json
+{
+  "selectedLocation": { "latitude": 41.04, "longitude": 29.01 },
+  "incidentType": "Fire",
+  "priorityScore": 55,
+  "priorityLevel": "High",
+  "relevantService": {
+    "serviceType": "FireStation",
+    "distanceMeters": 1266.68
+  },
+  "accessibilityLevel": "Good",
+  "breakdown": {
+    "incidentTypeBaseScore": 40,
+    "serviceDistanceScore": 10,
+    "accessibilityPenalty": 5
+  }
+}
+```
+
+`POST /api/incidents` cevabı önerilen hizmete ek olarak aynı açıklama dökümünü
+`priority` alanında döndürür; `GET /api/incidents` kalıcı skor ve seviyeyi içerir.
+Dashboard dört öncelik seviyesinin veritabanı tarafında gruplanmış sayılarını ve
+en yeni incident'ların önceliklerini gösterir. Frontend enum değerlerini yalnızca
+gösterim sırasında mevcut TR/EN katmanında yerelleştirir.
+
+Bu skor incident türü, straight-line/geodesic hizmet mesafesi ve erişilebilirliğe
+dayanan deterministik bir karar desteğidir. Resmî acil sevk önceliğini, tıbbi
+triyajı, itfaiye operasyon protokolünü, yol ağı yolculuk süresini, trafiği veya
+gerçek müdahale süresini temsil etmez.
 
 ## Çalıştırma
 
@@ -331,6 +392,7 @@ Invoke-RestMethod http://localhost:5113/api/roads
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/nearest?latitude=41.04&longitude=29.01"
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/coverage?latitude=41.04&longitude=29.01"
 Invoke-RestMethod "http://localhost:5113/api/location-analysis/accessibility?latitude=41.04&longitude=29.01"
+Invoke-RestMethod "http://localhost:5113/api/location-analysis/incident-priority?latitude=41.04&longitude=29.01&incidentType=Fire"
 Invoke-RestMethod http://localhost:5113/api/dashboard/summary
 Invoke-RestMethod http://localhost:5113/api/incidents
 Invoke-RestMethod -Method Post http://localhost:5113/api/incidents `
@@ -486,6 +548,6 @@ dotnet test SmartCity.slnx
 
 ## Phase sınırı
 
-Phase 3; harita görselleştirmesi, mevcut spatial read endpoint'leri, katman yönetimi
-ve kullanıcı koordinat seçimiyle tamamlanır. Distance analysis, en yakın acil hizmet
-sorguları, risk skoru, GeoPandas ve lokasyon önerisi Phase 4 ve sonrasına aittir.
+Phase 5A yalnızca açıklanabilir incident öncelik karar desteğini kapsar. Makine
+öğrenmesi, routing/travel-time, heatmap, authentication, dispatch assignment ve
+Phase 5B özellikleri bu fazda uygulanmaz.

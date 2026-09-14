@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartCity.Application.Abstractions;
 using SmartCity.Application.Models;
+using SmartCity.Application.Services;
 using SmartCity.Domain;
 using SmartCity.Infrastructure.Persistence;
 
@@ -20,10 +21,11 @@ public sealed class IncidentServiceTests
         EmergencyServiceType expectedServiceType)
     {
         await using var dbContext = CreateDbContext();
-        var analysisService = new StubLocationAnalysisService(CreateAnalysis());
+        var priorityService = new StubIncidentPriorityService(
+            CreatePriorityAnalysis(incidentType));
         var service = new IncidentService(
             dbContext,
-            analysisService,
+            priorityService,
             new FixedTimeProvider(FixedUtc));
 
         var result = await service.CreateAsync(
@@ -45,7 +47,11 @@ public sealed class IncidentServiceTests
         Assert.Equal(41.04, result.Incident.Latitude);
         Assert.Equal(expectedServiceType, result.RecommendedService!.ServiceType);
         Assert.True(result.RecommendedService.DistanceMeters > 0);
-        Assert.Equal(1, analysisService.CallCount);
+        Assert.Equal(result.Priority.Score, saved.PriorityScore);
+        Assert.Equal(result.Priority.Level, saved.PriorityLevel);
+        Assert.Equal(saved.PriorityScore, result.Incident.PriorityScore);
+        Assert.Equal(saved.PriorityLevel, result.Incident.PriorityLevel);
+        Assert.Equal(1, priorityService.CallCount);
     }
 
     [Fact]
@@ -54,7 +60,8 @@ public sealed class IncidentServiceTests
         await using var dbContext = CreateDbContext();
         var service = new IncidentService(
             dbContext,
-            new StubLocationAnalysisService(CreateAnalysis()),
+            new StubIncidentPriorityService(
+                CreatePriorityAnalysis(IncidentType.Other)),
             new FixedTimeProvider(FixedUtc));
 
         var result = await service.CreateAsync(
@@ -74,7 +81,8 @@ public sealed class IncidentServiceTests
         var analysis = CreateAnalysis() with { NearestFireStation = null };
         var service = new IncidentService(
             dbContext,
-            new StubLocationAnalysisService(analysis),
+            new StubIncidentPriorityService(
+                CreatePriorityAnalysis(IncidentType.Fire, analysis)),
             new FixedTimeProvider(FixedUtc));
 
         var result = await service.CreateAsync(
@@ -85,7 +93,9 @@ public sealed class IncidentServiceTests
             CancellationToken.None);
 
         Assert.Null(result.RecommendedService);
-        Assert.Single(await dbContext.Incidents.ToListAsync());
+        var saved = Assert.Single(await dbContext.Incidents.ToListAsync());
+        Assert.Equal(100, saved.PriorityScore);
+        Assert.Equal(PriorityLevel.Critical, saved.PriorityLevel);
     }
 
     [Fact]
@@ -98,7 +108,8 @@ public sealed class IncidentServiceTests
         await dbContext.SaveChangesAsync();
         var service = new IncidentService(
             dbContext,
-            new StubLocationAnalysisService(CreateAnalysis()),
+            new StubIncidentPriorityService(
+                CreatePriorityAnalysis(IncidentType.Fire)),
             new FixedTimeProvider(FixedUtc));
 
         var result = await service.GetAllAsync(CancellationToken.None);
@@ -106,6 +117,10 @@ public sealed class IncidentServiceTests
         Assert.Equal(2, result.Count);
         Assert.Equal(IncidentType.Medical, result[0].Type);
         Assert.Equal(IncidentType.Fire, result[1].Type);
+        Assert.Equal(80, result[0].PriorityScore);
+        Assert.Equal(PriorityLevel.Critical, result[0].PriorityLevel);
+        Assert.Equal(55, result[1].PriorityScore);
+        Assert.Equal(PriorityLevel.High, result[1].PriorityLevel);
     }
 
     private static SmartCityDbContext CreateDbContext()
@@ -118,16 +133,55 @@ public sealed class IncidentServiceTests
 
     private static SmartCity.Domain.Entities.Incident CreateIncident(
         IncidentType incidentType,
-        DateTimeOffset occurredAt) =>
+        DateTimeOffset occurredAt)
+    {
+        var isMedical = incidentType == IncidentType.Medical;
+        return
         new()
         {
             IncidentType = incidentType,
+            PriorityScore = isMedical ? 80 : 55,
+            PriorityLevel = isMedical ? PriorityLevel.Critical : PriorityLevel.High,
             OccurredAt = occurredAt,
             Geometry = new NetTopologySuite.Geometries.Point(29.01, 41.04)
             {
                 SRID = 4326
             }
         };
+    }
+
+    private static IncidentPriorityAnalysis CreatePriorityAnalysis(
+        IncidentType incidentType,
+        NearestEmergencyServicesResult? nearestServices = null)
+    {
+        var nearest = nearestServices ?? CreateAnalysis();
+        var recommendation = IncidentRecommendationSelector.Select(
+            incidentType,
+            nearest);
+        var accessibilityLevel = recommendation is null
+            ? AccessibilityLevel.Critical
+            : AccessibilityLevel.Excellent;
+        var calculation = IncidentPriorityCalculator.Calculate(
+            incidentType,
+            recommendation?.DistanceMeters,
+            accessibilityLevel);
+
+        return new IncidentPriorityAnalysis(
+            nearest.SelectedLocation,
+            incidentType,
+            recommendation,
+            new IncidentPriorityResult(
+                calculation.Score,
+                calculation.Level,
+                calculation.IncidentTypeBaseScore,
+                calculation.ServiceDistanceScore,
+                calculation.AccessibilityPenalty,
+                IncidentRecommendationSelector.ResolveRelevantServiceType(
+                    incidentType,
+                    recommendation),
+                recommendation?.DistanceMeters,
+                accessibilityLevel));
+    }
 
     private static NearestEmergencyServicesResult CreateAnalysis() =>
         new(
@@ -147,15 +201,16 @@ public sealed class IncidentServiceTests
                 29.015,
                 600));
 
-    private sealed class StubLocationAnalysisService(
-        NearestEmergencyServicesResult result)
-        : ILocationAnalysisService
+    private sealed class StubIncidentPriorityService(
+        IncidentPriorityAnalysis result)
+        : IIncidentPriorityService
     {
         public int CallCount { get; private set; }
 
-        public Task<NearestEmergencyServicesResult> FindNearestAsync(
+        public Task<IncidentPriorityAnalysis> AnalyzeAsync(
             double latitude,
             double longitude,
+            IncidentType incidentType,
             CancellationToken cancellationToken)
         {
             CallCount += 1;

@@ -11,7 +11,7 @@ namespace SmartCity.Infrastructure.Persistence;
 
 internal sealed class IncidentService(
     SmartCityDbContext dbContext,
-    ILocationAnalysisService locationAnalysisService,
+    IIncidentPriorityService incidentPriorityService,
     TimeProvider timeProvider)
     : IIncidentService
 {
@@ -22,14 +22,17 @@ internal sealed class IncidentService(
         string? description,
         CancellationToken cancellationToken)
     {
-        var analysis = await locationAnalysisService.FindNearestAsync(
+        var analysis = await incidentPriorityService.AnalyzeAsync(
             latitude,
             longitude,
+            incidentType,
             cancellationToken);
         var incident = new Incident
         {
             IncidentType = incidentType,
             Description = IncidentRequestValidation.NormalizeDescription(description),
+            PriorityScore = analysis.Priority.Score,
+            PriorityLevel = analysis.Priority.Level,
             OccurredAt = timeProvider.GetUtcNow(),
             // NetTopologySuite/PostGIS use X=longitude and Y=latitude.
             Geometry = new Point(longitude, latitude) { SRID = 4326 }
@@ -49,7 +52,8 @@ internal sealed class IncidentService(
 
         return new IncidentCreationResult(
             ToDto(incident),
-            SelectRecommendation(incidentType, analysis));
+            analysis.RecommendedService,
+            analysis.Priority);
     }
 
     public async Task<IReadOnlyList<IncidentDto>> GetAllAsync(
@@ -72,55 +76,6 @@ internal sealed class IncidentService(
         }
     }
 
-    internal static RecommendedEmergencyServiceDto? SelectRecommendation(
-        IncidentType incidentType,
-        NearestEmergencyServicesResult analysis) =>
-        incidentType switch
-        {
-            IncidentType.Fire => ToRecommendation(
-                EmergencyServiceType.FireStation,
-                analysis.NearestFireStation),
-            IncidentType.Medical or IncidentType.Accident => ToRecommendation(
-                EmergencyServiceType.Hospital,
-                analysis.NearestHospital),
-            IncidentType.Other => SelectClosestAvailable(analysis),
-            _ => null
-        };
-
-    private static RecommendedEmergencyServiceDto? SelectClosestAvailable(
-        NearestEmergencyServicesResult analysis)
-    {
-        var hospital = analysis.NearestHospital;
-        var fireStation = analysis.NearestFireStation;
-
-        if (hospital is null)
-        {
-            return ToRecommendation(EmergencyServiceType.FireStation, fireStation);
-        }
-
-        if (fireStation is null ||
-            hospital.DistanceMeters <= fireStation.DistanceMeters)
-        {
-            return ToRecommendation(EmergencyServiceType.Hospital, hospital);
-        }
-
-        return ToRecommendation(EmergencyServiceType.FireStation, fireStation);
-    }
-
-    private static RecommendedEmergencyServiceDto? ToRecommendation(
-        EmergencyServiceType serviceType,
-        NearestEmergencyServiceDto? service) =>
-        service is null
-            ? null
-            : new RecommendedEmergencyServiceDto(
-                serviceType,
-                service.Id,
-                service.Name,
-                service.ExternalId,
-                service.Latitude,
-                service.Longitude,
-                service.DistanceMeters);
-
     private static IncidentDto ToDto(Incident incident) =>
         new(
             incident.Id,
@@ -128,6 +83,8 @@ internal sealed class IncidentService(
             incident.Geometry.Y,
             incident.Geometry.X,
             incident.Description,
+            incident.PriorityScore,
+            incident.PriorityLevel,
             incident.OccurredAt);
 
     private static bool IsDatabaseFailure(Exception exception)

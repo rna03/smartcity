@@ -305,6 +305,9 @@ public sealed class LocationAnalysisControllerTests
     {
         public int CallCount { get; private set; }
 
+        public AccessibilityAnalysisResponse Analyze(
+            NearestEmergencyServicesResult nearestServices) => result;
+
         public Task<AccessibilityAnalysisResponse> AnalyzeAsync(
             double latitude,
             double longitude,

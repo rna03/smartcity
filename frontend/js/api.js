@@ -94,6 +94,16 @@ export function getAccessibilityAnalysis(latitude, longitude) {
   return getJson(`/api/location-analysis/accessibility?${query}`);
 }
 
+export function getIncidentPriorityPreview(latitude, longitude, incidentType) {
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    incidentType: String(incidentType)
+  });
+
+  return getJson(`/api/location-analysis/incident-priority?${query}`);
+}
+
 export function getDashboardSummary() {
   return getJson("/api/dashboard/summary");
 }

@@ -431,6 +431,7 @@ function createIncidentPopup(incident, recommendation) {
   const description = incident.description
     ? `<dt>${t("description")}</dt><dd>${escapeHtml(incident.description)}</dd>`
     : "";
+  const priority = createIncidentPriorityPopup(incident);
   const recommendedService = recommendation
     ? `<dt>${t("recommended")}</dt><dd>${escapeHtml(recommendation.name || t("unnamedService"))}</dd>` +
       `<dt>${t("distance")}</dt><dd>${formatDistance(recommendation.distanceMeters)}</dd>`
@@ -440,8 +441,30 @@ function createIncidentPopup(incident, recommendation) {
     `<h3>${escapeHtml(t("incidentPopupTitle", { type: formatIncidentType(incident.type) }))}</h3>` +
     `<dl><dt>${t("created")}</dt><dd>${escapeHtml(formatDate(incident.createdAtUtc))}</dd>` +
     description +
+    priority +
     recommendedService +
     `</dl></div>`;
+}
+
+function createIncidentPriorityPopup(incident) {
+  const level = normalizePriorityLevel(incident?.priorityLevel);
+  const score = Number(incident?.priorityScore);
+
+  if (level === "unknown" || !Number.isInteger(score) || score < 0 || score > 100) {
+    return `<dt>${t("priority")}</dt><dd>${t("unknown")}</dd>`;
+  }
+
+  const formattedScore = new Intl.NumberFormat(getLocale()).format(score);
+  return `<dt>${t("priority")}</dt>` +
+    `<dd><span class="coverage-badge priority-badge priority-badge--${level}">` +
+    `${escapeHtml(t(level))}</span> (${formattedScore}/100)</dd>`;
+}
+
+function normalizePriorityLevel(value) {
+  const normalized = String(value || "").toLowerCase();
+  return ["low", "medium", "high", "critical"].includes(normalized)
+    ? normalized
+    : "unknown";
 }
 
 function formatIncidentType(value) {

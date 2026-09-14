@@ -14,6 +14,8 @@ public sealed record IncidentDto(
     double Latitude,
     double Longitude,
     string? Description,
+    int PriorityScore,
+    PriorityLevel PriorityLevel,
     DateTimeOffset CreatedAtUtc);
 
 public enum EmergencyServiceType
@@ -33,7 +35,8 @@ public sealed record RecommendedEmergencyServiceDto(
 
 public sealed record IncidentCreationResult(
     IncidentDto Incident,
-    RecommendedEmergencyServiceDto? RecommendedService);
+    RecommendedEmergencyServiceDto? RecommendedService,
+    IncidentPriorityResult Priority);
 
 public static class IncidentRequestValidation
 {
