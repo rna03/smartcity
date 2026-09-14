@@ -284,6 +284,16 @@ Repository kök dizininde:
 
 ```powershell
 Copy-Item .env.example .env
+# .env içindeki change_me değerlerini kendi yerel parolanızla değiştirin.
+
+# .env değerlerini mevcut PowerShell oturumuna aktarın.
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        Set-Item -Path "Env:$($matches[1].Trim())" -Value $matches[2]
+    }
+}
+
+docker compose up -d database
 dotnet tool restore
 dotnet restore SmartCity.slnx
 dotnet tool run dotnet-ef database update --project backend/SmartCity.Infrastructure/SmartCity.Infrastructure.csproj --startup-project backend/SmartCity.Api/SmartCity.Api.csproj
@@ -292,13 +302,19 @@ dotnet run --project backend/SmartCity.Api/SmartCity.Api.csproj --launch-profile
 
 Uygulama başladıktan sonra [http://localhost:5113](http://localhost:5113) adresi açılır. İlk kullanımda veritabanında mekânsal veri yoksa OpenStreetMap import endpointi bir kez çağrılır.
 
+`.env`, yalnızca yerel geliştirme içindir ve Git tarafından ignore edilir. `POSTGRES_DB`, `POSTGRES_USER` ve `POSTGRES_PASSWORD` Docker Compose tarafından; `ConnectionStrings__SmartCityDatabase` ise ASP.NET Core'un yerleşik environment-variable configuration provider'ı tarafından okunur. `.env` içindeki PostgreSQL değerleri ile connection string değerleri birbiriyle tutarlı olmalıdır.
+
 Overpass URL/timeout değerleri ve pilot alan sınırları `backend/SmartCity.Api/appsettings.json` içindedir. Nested configuration değerleri environment variable ile değiştirilebilir; örneğin `OpenStreetMap__Primary__Url`.
 
 ## Docker ile Veritabanını Başlatma
 
 Docker, uygulamanın tamamını production ortamına deploy etmek için değil, yerel geliştirmede PostgreSQL/PostGIS veritabanını container olarak çalıştırmak için kullanılır.
 
+Önce örnek dosyayı yerel configuration dosyası olarak kopyalayın ve `change_me` yerine yalnızca kendi makinenizde kullanılacak bir parola belirleyin:
+
 ```powershell
+Copy-Item .env.example .env
+# .env içindeki POSTGRES_PASSWORD ve connection string parola değerlerini güncelleyin.
 docker compose config --quiet
 docker compose up -d database
 docker compose ps
@@ -306,7 +322,9 @@ docker compose ps
 
 Container sağlıklı olduğunda API migration ve veri erişimi işlemleri çalıştırılabilir. Mevcut volume'u silmek geliştirme verilerini kaldırır; normal çalışma akışında volume reset gerekmez.
 
-Repository'deki `smartcity_dev_password` yalnızca yerel demo için kullanılan, gizli olmayan bir **development credential** değeridir; production secret değildir ve production ortamında kullanılmamalıdır. Gerçek ortamlarda bağlantı bilgileri environment variable veya uygun bir secret yönetimi yöntemiyle override edilmelidir:
+İzlenen dosyalarda gerçek parola veya connection string tutulmaz. `.env.example` yalnızca güvenli placeholder değerler içerir; gerçek yerel değerler ignore edilen `.env` dosyasında kalır. Git geçmişindeki eski demo credential yalnızca development amaçlıydı, production secret değildi; bu düzenleme commit geçmişini yeniden yazmaz.
+
+ASP.NET Core bağlantı bilgisi `ConnectionStrings__SmartCityDatabase` environment variable'ından alınır. Production ortamlarında `.env` yerine platformun secret yönetimi kullanılmalıdır:
 
 ```powershell
 $env:ConnectionStrings__SmartCityDatabase = "Host=db;Database=smartcity;Username=app;Password=<secret>"
